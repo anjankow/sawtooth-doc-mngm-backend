@@ -17,20 +17,12 @@ type server struct {
 }
 
 func (ser server) badRequest(w http.ResponseWriter, message string) {
-	if _, err := w.Write([]byte(message)); err != nil {
-		ser.logger.Error("failed to write a bad request error message: " + err.Error())
-	}
-
-	w.WriteHeader(http.StatusBadRequest)
+	http.Error(w, message, http.StatusBadRequest)
 	ser.logger.Warn(message)
 }
 
 func (ser server) serverError(w http.ResponseWriter, message string) {
-	if _, err := w.Write([]byte(message)); err != nil {
-		ser.logger.Error("failed to write a server error message: " + err.Error())
-	}
-
-	w.WriteHeader(http.StatusInternalServerError)
+	http.Error(w, message, http.StatusInternalServerError)
 	ser.logger.Error(message)
 }
 
