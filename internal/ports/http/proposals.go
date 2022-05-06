@@ -17,7 +17,6 @@ func (ser server) getProposals(w http.ResponseWriter, r *http.Request) {
 
 func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Println(r.Header.Get("Content-Type"))
 	// max file size is 10MB
 	if err := r.ParseMultipartForm(10e7); err != nil {
 		ser.badRequest(w, "failed to parse the form: "+err.Error())
@@ -32,10 +31,13 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 		validationErr = multierr.Append(validationErr, errors.New("userID is missing"))
 	}
 
-	docID := r.FormValue("docID")
-	if docID == "" {
+	docName := r.FormValue("docID")
+	if docName == "" {
 		validationErr = multierr.Append(validationErr, errors.New("docID is missing"))
 	}
+	category := r.FormValue("category")
+	docStatus := r.FormValue("docStatus")
+
 	file, handler, err := r.FormFile("docFile")
 	if err != nil {
 		err = multierr.Append(validationErr, errors.New("failed to get the proposal file from form: "+err.Error()))
@@ -60,13 +62,20 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 
 	ser.logger.Info(fmt.Sprintf("received file: %s, size %v", handler.Filename, handler.Size))
 
-	document := model.Document{
-		Author:     userID,
-		DocumentID: docID,
-		DocBytes:   bytes,
+	proposal := model.Proposal{
+		DocumentID: model.DocumentID{
+			DocumentName: docName,
+			Category:     category,
+		},
+		ProposalContent: model.ProposalContent{
+			ModificationAuthor: userID,
+			Content:            []byte{},
+			ContentHash:        []byte{},
+			ProposedStatus:     docStatus,
+		},
 	}
 
-	if err := ser.app.SaveDocumentProposal(r.Context(), document); err != nil {
+	if err := ser.app.SaveDocumentProposal(r.Context(), proposal); err != nil {
 		ser.serverError(w, "saving the proposal failed: "+err.Error())
 		return
 	}
