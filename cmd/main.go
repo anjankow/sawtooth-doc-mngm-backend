@@ -2,6 +2,7 @@ package main
 
 import (
 	"doc-management/internal/app"
+	"doc-management/internal/hashing"
 	"doc-management/internal/ports/http"
 	"log"
 	"time"
@@ -19,6 +20,8 @@ func main() {
 	defer logger.Sync()
 
 	logger.Info("application started")
+
+	hashing.Initialize(logger)
 
 	app := &app.App{}
 	ser := http.NewServer(logger, app, ":8077")

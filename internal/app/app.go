@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"doc-management/internal/blockchain"
+	"doc-management/internal/hashing"
 	"doc-management/internal/keymanager"
 	"doc-management/internal/model"
 	"errors"
@@ -22,6 +23,8 @@ func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) 
 	if status := (model.DocStatus)(proposal.ProposedStatus); !status.IsValid() {
 		return errors.New("invalid document status: " + proposal.ProposedStatus)
 	}
+
+	proposal.ContentHash = hashing.Calculate(proposal.Content)
 
 	keys, err := keymanager.GenerateKeys()
 	if err != nil {

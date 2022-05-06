@@ -9,7 +9,7 @@ type ProposalContent struct {
 	ProposalID         string
 	ModificationAuthor string
 	Content            []byte
-	ContentHash        []byte
+	ContentHash        string
 
 	ProposedStatus string
 }

@@ -3,20 +3,33 @@ package hashing
 import (
 	"crypto/sha512"
 	"encoding/hex"
-	"errors"
+
+	"hash"
+
+	"go.uber.org/zap"
 )
 
-type Hash struct {
-	logger *zap.logger
+type hashWrapper struct {
+	logger *zap.Logger
+	hash   hash.Hash
 }
 
-func Hash(data []byte) string {
-	hash := sha512.New()
-	if _, err := hash.Write(data); err != nil {
-		return "", errors.New("failed to initialize hash function: " + err.Error())
+var hashInstance hashWrapper
+
+func Initialize(logger *zap.Logger) {
+	hashInstance.hash = sha512.New()
+	hashInstance.logger = logger
+}
+
+func Calculate(data []byte) string {
+	hashInstance.hash.Reset()
+
+	if _, err := hashInstance.hash.Write(data); err != nil {
+		hashInstance.logger.Error("failed to initialize hash function: " + err.Error())
+		return ""
 	}
 
-	h := hash.Sum(nil)
+	h := hashInstance.hash.Sum(nil)
 
-	return hex.EncodeToString(h), nil
+	return hex.EncodeToString(h)
 }

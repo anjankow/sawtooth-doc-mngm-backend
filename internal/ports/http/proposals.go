@@ -69,8 +69,7 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 		},
 		ProposalContent: model.ProposalContent{
 			ModificationAuthor: userID,
-			Content:            []byte{},
-			ContentHash:        []byte{},
+			Content:            bytes,
 			ProposedStatus:     docStatus,
 		},
 	}
