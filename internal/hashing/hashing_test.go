@@ -1,4 +1,4 @@
-package model_test
+package hashing_test
 
 import (
 	"doc-management/internal/model"

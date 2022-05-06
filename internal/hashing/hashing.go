@@ -1,4 +1,4 @@
-package model
+package hashing
 
 import (
 	"crypto/sha512"
@@ -6,7 +6,11 @@ import (
 	"errors"
 )
 
-func Hash(data []byte) (string, error) {
+type Hash struct {
+	logger *zap.logger
+}
+
+func Hash(data []byte) string {
 	hash := sha512.New()
 	if _, err := hash.Write(data); err != nil {
 		return "", errors.New("failed to initialize hash function: " + err.Error())
