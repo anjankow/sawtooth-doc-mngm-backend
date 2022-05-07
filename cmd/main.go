@@ -23,8 +23,8 @@ func main() {
 
 	hashing.Initialize(logger)
 
-	app := &app.App{}
-	ser := http.NewServer(logger, app, ":8077")
+	app := app.NewApp(logger)
+	ser := http.NewServer(logger, &app, ":8077")
 	if err := ser.Run(); err != nil {
 		logger.Error("failed to run the server: " + err.Error())
 	}
