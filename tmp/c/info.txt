@@ -1,0 +1,2 @@
+These files are used as a workaround to this issue:
+https://github.com/hyperledger/sawtooth-sdk-go/issues/50
