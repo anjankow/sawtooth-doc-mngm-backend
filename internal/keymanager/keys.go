@@ -6,12 +6,18 @@ import (
 	"crypto/rand"
 	"errors"
 
-	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec"
+	"github.com/hyperledger/sawtooth-sdk-go/signing"
 )
 
 type UserKeys struct {
-	PublicKey  []byte
-	PrivateKey []byte
+	PrivateKey signing.PrivateKey
+	PublicKey  signing.PublicKey
+}
+
+func (u UserKeys) GetSigner() *signing.Signer {
+	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
+	return cryptoFactory.NewSigner(u.PrivateKey)
 }
 
 // source: https://github.com/ethereum/go-ethereum/blob/86d547707965685cef732aa28c15e6811ea98408/crypto/secp256k1/secp256_test.go#L19
@@ -27,7 +33,7 @@ func GenerateKeys() (UserKeys, error) {
 	copy(privkey[32-len(blob):], blob)
 
 	return UserKeys{
-		PublicKey:  pubkey,
-		PrivateKey: privkey,
+		PublicKey:  signing.NewSecp256k1PublicKey(pubkey),
+		PrivateKey: signing.NewSecp256k1PrivateKey(privkey),
 	}, nil
 }

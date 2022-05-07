@@ -10,6 +10,7 @@ import (
 )
 
 type App struct {
+	client blockchain.Client
 }
 
 func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) error {
@@ -31,5 +32,5 @@ func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) 
 		return err
 	}
 
-	return blockchain.SubmitProposal(ctx, proposal, keys)
+	return a.client.SubmitProposal(ctx, proposal, keys.GetSigner())
 }

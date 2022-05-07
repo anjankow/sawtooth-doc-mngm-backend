@@ -33,3 +33,7 @@ func Calculate(data []byte) string {
 
 	return hex.EncodeToString(h)
 }
+
+func CalculateFromStr(data string) string {
+	return Calculate([]byte(data))
+}
