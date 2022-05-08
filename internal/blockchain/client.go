@@ -1,6 +1,10 @@
 package blockchain
 
-import "go.uber.org/zap"
+import (
+	"strings"
+
+	"go.uber.org/zap"
+)
 
 type Client struct {
 	logger *zap.Logger
@@ -8,5 +12,10 @@ type Client struct {
 }
 
 func NewClient(logger *zap.Logger, validatorRestAPIUrl string) *Client {
-	return &Client{logger: logger, url: validatorRestAPIUrl}
+	url := validatorRestAPIUrl
+	if !strings.HasPrefix(validatorRestAPIUrl, "http://") {
+		url = "http://%s" + validatorRestAPIUrl
+	}
+
+	return &Client{logger: logger, url: url}
 }

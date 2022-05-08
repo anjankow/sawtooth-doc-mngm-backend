@@ -23,10 +23,8 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
-	"doc-management/internal/config"
 	"doc-management/internal/hashing"
 	"doc-management/internal/model"
 	"encoding/hex"
@@ -61,8 +59,10 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	docNameHash := hashing.CalculateFromStr(proposal.DocumentName)
 
 	address := proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
+	c.logger.Debug("submitting a proposal to address " + address)
 
 	payload := make(map[string]interface{})
+	payload["proposalID"] = proposal.ProposalID
 	payload["docName"] = proposal.DocumentName
 	payload["contentHash"] = proposal.ContentHash
 	payload["proposedStatus"] = proposal.ProposedStatus
@@ -117,12 +117,12 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	waitTime := uint(0)
 	startTime := time.Now()
 	response, err := c.sendRequest(
-		batchSubmitAPI, batchList, contentTypeOctetStream)
+		ctx, batchSubmitAPI, batchList, contentTypeOctetStream)
 	if err != nil {
 		return err
 	}
 	for waitTime < wait {
-		status, err := c.getStatus(batchId, wait-waitTime)
+		status, err := c.getStatus(ctx, batchId, wait-waitTime)
 		if err != nil {
 			return err
 		}
@@ -138,48 +138,54 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 
 }
 
-func (c Client) getStatus(
+func (c Client) getStatus(ctx context.Context,
 	batchId string, wait uint) (string, error) {
 
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d",
 		batchStatusAPI, batchId, wait)
-	response, err := c.sendRequest(apiSuffix, []byte{}, "")
+	response, err := c.sendRequest(ctx, apiSuffix, []byte{}, "")
 	if err != nil {
 		return "", err
 	}
 
-	responseMap := make(map[interface{}]interface{})
+	responseMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(response), &responseMap)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))
 	}
 	entry :=
-		responseMap["data"].([]interface{})[0].(map[interface{}]interface{})
+		responseMap["data"].([]interface{})[0].(map[string]interface{})
 	return fmt.Sprint(entry["status"]), nil
 }
 
 func (c Client) sendRequest(
+	ctx context.Context,
 	apiSuffix string,
 	data []byte,
 	contentType string) (string, error) {
 
 	// Construct URL
-	var url string
-	if strings.HasPrefix(config.GetValidatorRestApiAddr(), "http://") {
-		url = fmt.Sprintf("%s/%s", config.GetValidatorRestApiAddr(), apiSuffix)
+	url := fmt.Sprintf("%s/%s", c.url, apiSuffix)
+
+	var req *http.Request
+	var err error
+	// Send request to validator URL
+	if len(data) > 0 {
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, url, bytes2.NewBuffer(data))
 	} else {
-		url = fmt.Sprintf("http://%s/%s", config.GetValidatorRestApiAddr(), apiSuffix)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	}
 
-	// Send request to validator URL
-	var response *http.Response
-	var err error
-	if len(data) > 0 {
-		response, err = http.Post(url, contentType, bytes2.NewBuffer(data))
-	} else {
-		response, err = http.Get(url)
+	if err != nil {
+		return "", errors.New("failed to create a new request: " + err.Error())
 	}
+	req.Header.Add("Content-Type", contentType)
+
+	c.logger.Debug("sending " + req.Method + " request to " + url)
+	response, err := http.DefaultClient.Do(req)
+	c.logger.Debug("request sent")
+
 	if err != nil {
 		return "", errors.New(
 			fmt.Sprintf("Failed to connect to REST API: %v", err))
@@ -192,6 +198,8 @@ func (c Client) sendRequest(
 			fmt.Sprintf("Error %d: %s", response.StatusCode, response.Status))
 	}
 	defer response.Body.Close()
+
+	c.logger.Debug("reading the response body")
 	reponseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))

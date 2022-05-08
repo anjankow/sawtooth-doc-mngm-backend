@@ -43,3 +43,10 @@ func TestHashing2Times(t *testing.T) {
 		output)
 
 }
+
+func TestFamilyHash(t *testing.T) {
+	proposalFamily := "proposals"
+	hashing.Initialize(zap.NewNop())
+	proposalFamilyHash := hashing.CalculateFromStr(proposalFamily)
+	assert.Equal(t, proposalFamilyHash[0:6], "8ed94c")
+}
