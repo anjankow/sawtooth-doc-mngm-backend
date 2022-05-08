@@ -14,7 +14,7 @@ type Client struct {
 func NewClient(logger *zap.Logger, validatorRestAPIUrl string) *Client {
 	url := validatorRestAPIUrl
 	if !strings.HasPrefix(validatorRestAPIUrl, "http://") {
-		url = "http://%s" + validatorRestAPIUrl
+		url = "http://" + validatorRestAPIUrl
 	}
 
 	return &Client{logger: logger, url: url}
