@@ -122,7 +122,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 		return err
 	}
 	for waitTime < wait {
-		status, err := c.getStatus(ctx, batchId, wait-waitTime)
+		status, err := c.getStatus(context.Background(), batchId, wait-waitTime)
 		if err != nil {
 			return err
 		}
