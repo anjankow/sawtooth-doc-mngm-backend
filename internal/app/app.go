@@ -9,9 +9,14 @@ import (
 	"doc-management/internal/model"
 	"doc-management/internal/repository/mongodb"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+)
+
+const (
+	submitTimeout = 10 * time.Second
 )
 
 type App struct {
@@ -42,13 +47,18 @@ func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) 
 		return err
 	}
 
-	transactionID, err := a.blkchnClient.SubmitProposal(context.Background(), proposal, keys.GetSigner())
+	submitCtx, _ := context.WithTimeout(context.Background(), submitTimeout)
+	transactionID, err := a.blkchnClient.SubmitProposal(submitCtx, proposal, keys.GetSigner())
 	if err != nil {
 		a.logger.Error(err.Error())
 		// return err
 	}
+	a.logger.Info("proposal submitted, transaction ID: "+transactionID, zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
 
-	return a.db.InsertProposal(context.Background(), proposal, transactionID)
+	dbCtx, cancel := context.WithTimeout(context.Background(), submitTimeout)
+	defer cancel()
+
+	return a.db.InsertProposal(dbCtx, proposal, transactionID)
 }
 
 func validateProposal(proposal model.Proposal) error {

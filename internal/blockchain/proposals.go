@@ -49,7 +49,7 @@ const (
 	stateAPI               string = "state"
 	contentTypeOctetStream string = "application/octet-stream"
 
-	wait uint = 5
+	wait uint = 10
 )
 
 func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) (transactionID string, err error) {
@@ -83,6 +83,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 		Outputs:          []string{address},
 		PayloadSha512:    hashing.Calculate(payloadDump),
 	}
+
 	transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 	if err != nil {
 		return "", errors.New(
@@ -129,12 +130,12 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 		waitTime = uint(time.Now().Sub(startTime))
 		if status != "PENDING" {
 			c.logger.Info("getStatus response: " + response)
-			return "", nil
+			return transactionHeaderSignature, nil
 		}
 	}
 
 	c.logger.Info("getStatus response: " + response)
-	return "", nil
+	return transactionHeaderSignature, nil
 
 }
 
