@@ -7,6 +7,7 @@ import (
 	"doc-management/internal/hashing"
 	"doc-management/internal/keymanager"
 	"doc-management/internal/model"
+	"doc-management/internal/repository/mongodb"
 	"errors"
 
 	"github.com/google/uuid"
@@ -14,37 +15,59 @@ import (
 )
 
 type App struct {
-	client *blockchain.Client
-	logger *zap.Logger
+	blkchnClient *blockchain.Client
+	logger       *zap.Logger
+	db           mongodb.Repository
 }
 
-func NewApp(logger *zap.Logger) App {
+func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	return App{
-		client: blockchain.NewClient(logger, config.GetValidatorRestApiAddr()),
-		logger: logger,
+		blkchnClient: blockchain.NewClient(logger, config.GetValidatorRestApiAddr()),
+		logger:       logger,
+		db:           db,
 	}
 }
 
 func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) error {
 
-	if proposal.Category == "" {
-		proposal.Category = model.DefaultCategory
+	proposal = completeProposalData(proposal)
+	if err := validateProposal(proposal); err != nil {
+		return err
 	}
-	if proposal.ProposedStatus == "" {
-		proposal.ProposedStatus = string(model.DocStatusAccepted)
-	}
-	if status := (model.DocStatus)(proposal.ProposedStatus); !status.IsValid() {
-		return errors.New("invalid document status: " + proposal.ProposedStatus)
-	}
-	proposal.ProposalID = uuid.NewString()
-	proposal.ContentHash = hashing.Calculate(proposal.Content)
+
+	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
 
 	keys, err := keymanager.GenerateKeys()
 	if err != nil {
 		return err
 	}
 
-	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
+	transactionID, err := a.blkchnClient.SubmitProposal(context.Background(), proposal, keys.GetSigner())
+	if err != nil {
+		a.logger.Error(err.Error())
+		// return err
+	}
 
-	return a.client.SubmitProposal(ctx, proposal, keys.GetSigner())
+	return a.db.InsertProposal(context.Background(), proposal, transactionID)
+}
+
+func validateProposal(proposal model.Proposal) error {
+	if status := (model.DocStatus)(proposal.ProposedStatus); !status.IsValid() {
+		return errors.New("invalid document status: " + proposal.ProposedStatus)
+	}
+
+	return nil
+}
+
+func completeProposalData(proposal model.Proposal) model.Proposal {
+	if proposal.Category == "" {
+		proposal.Category = model.DefaultCategory
+	}
+	if proposal.ProposedStatus == "" {
+		proposal.ProposedStatus = string(model.DocStatusAccepted)
+	}
+	proposal.ProposalID = uuid.NewString()
+	proposal.ContentHash = hashing.Calculate(proposal.Content)
+
+	return proposal
 }

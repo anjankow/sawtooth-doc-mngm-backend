@@ -52,7 +52,7 @@ const (
 	wait uint = 5
 )
 
-func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) error {
+func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) (transactionID string, err error) {
 
 	proposalFamilyHash := hashing.CalculateFromStr(proposalFamily)
 	categoryHash := hashing.CalculateFromStr(proposal.Category)
@@ -69,7 +69,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	payload["author"] = proposal.ModificationAuthor
 	payloadDump, err := cbor.Dumps(payload)
 	if err != nil {
-		return errors.New("failed to dump the payload: " + err.Error())
+		return "", errors.New("failed to dump the payload: " + err.Error())
 	}
 
 	// Construct TransactionHeader
@@ -85,7 +85,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	}
 	transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 	if err != nil {
-		return errors.New(
+		return "", errors.New(
 			fmt.Sprintf("unable to serialize transaction header: %v", err))
 	}
 
@@ -104,13 +104,13 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	rawBatchList, err := createBatchList(
 		[]*transaction_pb2.Transaction{&transaction}, signer)
 	if err != nil {
-		return errors.New(
+		return "", errors.New(
 			fmt.Sprintf("unable to construct batch list: %v", err))
 	}
 	batchId := rawBatchList.Batches[0].HeaderSignature
 	batchList, err := proto.Marshal(&rawBatchList)
 	if err != nil {
-		return errors.New(
+		return "", errors.New(
 			fmt.Sprintf("unable to serialize batch list: %v", err))
 	}
 
@@ -119,22 +119,22 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	response, err := c.sendRequest(
 		ctx, batchSubmitAPI, batchList, contentTypeOctetStream)
 	if err != nil {
-		return err
+		return "", err
 	}
 	for waitTime < wait {
 		status, err := c.getStatus(context.Background(), batchId, wait-waitTime)
 		if err != nil {
-			return err
+			return "", err
 		}
 		waitTime = uint(time.Now().Sub(startTime))
 		if status != "PENDING" {
 			c.logger.Info("getStatus response: " + response)
-			return nil
+			return "", nil
 		}
 	}
 
 	c.logger.Info("getStatus response: " + response)
-	return nil
+	return "", nil
 
 }
 

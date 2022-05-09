@@ -2,8 +2,10 @@ package main
 
 import (
 	"doc-management/internal/app"
+	"doc-management/internal/config"
 	"doc-management/internal/hashing"
 	"doc-management/internal/ports/http"
+	"doc-management/internal/repository/mongodb"
 	"log"
 	"time"
 
@@ -22,11 +24,16 @@ func main() {
 	logger.Info("application started")
 
 	hashing.Initialize(logger)
+	db, err := mongodb.NewConnection(logger, config.GetDbConnectionURI())
+	if err != nil {
+		logger.Fatal("failed to connect to the db: " + err.Error())
+	}
+	defer db.Disconnect()
 
-	app := app.NewApp(logger)
+	app := app.NewApp(logger, db)
 	ser := http.NewServer(logger, &app, ":8077")
 	if err := ser.Run(); err != nil {
-		logger.Error("failed to run the server: " + err.Error())
+		logger.Fatal("failed to run the server: " + err.Error())
 	}
 
 	logger.Info("application finished")
