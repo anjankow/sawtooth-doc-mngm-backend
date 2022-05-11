@@ -22,6 +22,7 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 	proposal, err := ser.readProposalParams(r)
 	if err != nil {
 		ser.badRequest(w, err.Error())
+		return
 	}
 
 	// TODO: fix context to come from the client

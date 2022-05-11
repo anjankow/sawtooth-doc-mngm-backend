@@ -9,14 +9,14 @@ type DocVersion struct {
 }
 
 type Proposal struct {
-	ProposalID    string
+	// transaction ID is used as a proposal ID
 	TransactionID string
 	Content       []byte
 	Author        string
 }
 
 type StoredDocument struct {
-	DocumentName string       `bson:"_id" json:"id"`
-	Proposals    []Proposal   `bson:"proposals" json:"proposals"`
-	Versions     []DocVersion `bson:"versions" json:"versions"`
+	DocumentName string              `bson:"_id" json:"id"`
+	Proposals    map[string]Proposal `bson:"proposals" json:"proposals"`
+	Versions     []DocVersion        `bson:"versions" json:"versions"`
 }

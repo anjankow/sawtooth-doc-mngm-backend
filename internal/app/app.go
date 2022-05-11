@@ -46,15 +46,22 @@ func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) 
 	if err != nil {
 		return err
 	}
+	proposal.TransactionID = transaction.GetTransactionID()
 
-	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
+	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("transactionID", proposal.TransactionID))
 
-	transactionID, err := a.blkchnClient.Submit(ctx, transaction)
-	if err != nil {
-		a.logger.Error(err.Error())
-		// return err
+	if err := a.db.InsertProposal(ctx, proposal, transaction.GetTransactionID()); err != nil {
+		return err
 	}
-	a.logger.Info("proposal submitted, transaction ID: "+transactionID, zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
 
-	return a.db.InsertProposal(ctx, proposal, transactionID)
+	if _, err = a.blkchnClient.Submit(ctx, transaction); err != nil {
+		// remove the doc from the database
+		a.logger.Debug("removing the proposal content from the database on error", zap.String("transactionID", proposal.TransactionID))
+		_ = a.db.RemoveProposal(context.Background(), proposal)
+		return err
+	}
+
+	a.logger.Info("proposal submitted, transaction ID: "+transaction.GetTransactionID(), zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor))
+
+	return nil
 }

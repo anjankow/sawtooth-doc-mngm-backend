@@ -3,8 +3,6 @@ package model
 import (
 	"doc-management/internal/hashing"
 	"errors"
-
-	"github.com/google/uuid"
 )
 
 type Proposal struct {
@@ -13,7 +11,9 @@ type Proposal struct {
 }
 
 type ProposalContent struct {
-	ProposalID         string
+	// transaction ID is unique for each proposal and is used as a proposal ID
+	TransactionID string
+
 	ModificationAuthor string
 	Content            []byte
 	ContentHash        string
@@ -36,6 +36,5 @@ func (proposal *Proposal) Complete() {
 	if proposal.ProposedStatus == "" {
 		proposal.ProposedStatus = string(DocStatusAccepted)
 	}
-	proposal.ProposalID = uuid.NewString()
 	proposal.ContentHash = hashing.Calculate(proposal.Content)
 }
