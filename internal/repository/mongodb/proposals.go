@@ -144,3 +144,7 @@ func (b Repository) RemoveProposal(ctx context.Context, proposal model.Proposal)
 	return b.removeProposal(ctx, proposal, coll, result)
 
 }
+
+func (b Repository) GetUserProposals(ctx context.Context, userID string) ([]model.Proposal, error) {
+	return []model.Proposal{}, nil
+}

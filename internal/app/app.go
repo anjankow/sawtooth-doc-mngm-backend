@@ -30,7 +30,11 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	}
 }
 
-func (a App) SaveDocumentProposal(ctx context.Context, proposal model.Proposal) error {
+func (a App) GetAllProposals(ctx context.Context, category string, userID string) ([]model.Proposal, error) {
+	return a.db.GetUserProposals(ctx, userID)
+}
+
+func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
 
 	proposal.Complete()
 	if err := proposal.Validate(); err != nil {

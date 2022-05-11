@@ -8,12 +8,27 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
-func (ser server) getProposals(w http.ResponseWriter, r *http.Request) {
+func (ser server) getDocProposals(w http.ResponseWriter, r *http.Request) {
+}
+
+func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
+	userID := normalize(r.URL.Query().Get("userID"))
+	category := normalize(r.URL.Query().Get("category"))
+
+	ser.logger.Info("getting all the proposals", zap.String("userID", userID), zap.String("category", category))
+
+	_, err := ser.app.GetAllProposals(r.Context(), category, userID)
+	if err != nil {
+		ser.serverError(w, "getting the proposals failed: "+err.Error())
+		return
+	}
 
 }
 
@@ -29,7 +44,7 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), config.GetRequestTimeout())
 	defer cancel()
 
-	if err := ser.app.SaveDocumentProposal(ctx, proposal); err != nil {
+	if err := ser.app.SaveProposal(ctx, proposal); err != nil {
 		ser.serverError(w, "saving the proposal failed: "+err.Error())
 		return
 	}
@@ -45,18 +60,18 @@ func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
 
 	var err error
 	params := mux.Vars(r)
-	userID := params["userID"]
+	docName := normalize(params["docName"])
+	if docName == "" {
+		err = multierr.Append(err, errors.New("docName is missing"))
+	}
 
+	userID := normalize(r.FormValue("userID"))
 	if userID == "" {
 		err = multierr.Append(err, errors.New("userID is missing"))
 	}
 
-	docName := r.FormValue("docID")
-	if docName == "" {
-		err = multierr.Append(err, errors.New("docID is missing"))
-	}
-	category := r.FormValue("category")
-	docStatus := r.FormValue("docStatus")
+	category := normalize(r.FormValue("category"))
+	docStatus := normalize(r.FormValue("docStatus"))
 
 	file, handler, err := r.FormFile("docFile")
 	if err != nil {
@@ -90,4 +105,8 @@ func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
 			ProposedStatus:     docStatus,
 		},
 	}, nil
+}
+
+func normalize(str string) string {
+	return strings.TrimSpace(str)
 }
