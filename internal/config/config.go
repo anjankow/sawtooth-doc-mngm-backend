@@ -1,11 +1,15 @@
 package config
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
 const (
-	defaultLocalPort    = ":8080"
-	defaultDatabaseName = "documents"
-	defaultDbURI        = "mongodb://root:example@localhost:27017/"
+	defaultLocalPort      = ":8080"
+	defaultDatabaseName   = "documents"
+	defaultDbURI          = "mongodb://root:example@localhost:27017/"
+	defaultRequestTimeout = 10 * time.Second
 
 	DefaultDbPort = ":27017"
 )
@@ -64,4 +68,8 @@ func GetDatabaseName() string {
 
 	dbName = defaultDatabaseName
 	return dbName
+}
+
+func GetRequestTimeout() time.Duration {
+	return defaultRequestTimeout
 }

@@ -52,18 +52,19 @@ const (
 	wait uint = 10
 )
 
-func getProposalAddress(proposal model.Proposal) (address string) {
-	proposalFamilyHash := hashing.CalculateFromStr(proposalFamily)
-	categoryHash := hashing.CalculateFromStr(proposal.Category)
-	docNameHash := hashing.CalculateFromStr(proposal.DocumentName)
-
-	return proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
+type ProposalTransaction struct {
+	address     string
+	transaction transaction_pb2.Transaction
+	signer      *signing.Signer
 }
 
-func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) (transactionID string, err error) {
+func (t ProposalTransaction) GetTransactionID() string {
+	return t.transaction.HeaderSignature
+}
+
+func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (ProposalTransaction, error) {
 
 	address := getProposalAddress(proposal)
-	c.logger.Debug("submitting a proposal to address " + address)
 
 	payload := make(map[string]interface{})
 	payload["category"] = proposal.Category
@@ -74,7 +75,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	payload["author"] = proposal.ModificationAuthor
 	payloadDump, err := cbor.Dumps(payload)
 	if err != nil {
-		return "", errors.New("failed to dump the payload: " + err.Error())
+		return ProposalTransaction{}, errors.New("failed to dump the payload: " + err.Error())
 	}
 
 	// Construct TransactionHeader
@@ -91,7 +92,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 
 	transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 	if err != nil {
-		return "", errors.New(
+		return ProposalTransaction{}, errors.New(
 			fmt.Sprintf("unable to serialize transaction header: %v", err))
 	}
 
@@ -106,9 +107,28 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 		Payload:         payloadDump,
 	}
 
+	return ProposalTransaction{
+		address:     address,
+		transaction: transaction,
+		signer:      signer,
+	}, nil
+}
+
+func getProposalAddress(proposal model.Proposal) (address string) {
+	proposalFamilyHash := hashing.CalculateFromStr(proposalFamily)
+	categoryHash := hashing.CalculateFromStr(proposal.Category)
+	docNameHash := hashing.CalculateFromStr(proposal.DocumentName)
+
+	return proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
+}
+
+func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
+
+	c.logger.Debug("submitting a proposal to address " + proposalTxn.address)
+
 	// Get BatchList
 	rawBatchList, err := createBatchList(
-		[]*transaction_pb2.Transaction{&transaction}, signer)
+		[]*transaction_pb2.Transaction{&proposalTxn.transaction}, proposalTxn.signer)
 	if err != nil {
 		return "", errors.New(
 			fmt.Sprintf("unable to construct batch list: %v", err))
@@ -135,12 +155,12 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 		waitTime = uint(time.Now().Sub(startTime))
 		if status != "PENDING" {
 			c.logger.Info("getStatus response: " + response)
-			return transactionHeaderSignature, nil
+			return proposalTxn.transaction.HeaderSignature, nil
 		}
 	}
 
 	c.logger.Info("getStatus response: " + response)
-	return transactionHeaderSignature, nil
+	return proposalTxn.transaction.HeaderSignature, nil
 
 }
 

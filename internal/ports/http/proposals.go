@@ -1,6 +1,8 @@
 package http
 
 import (
+	"context"
+	"doc-management/internal/config"
 	"doc-management/internal/model"
 	"errors"
 	"fmt"
@@ -17,52 +19,66 @@ func (ser server) getProposals(w http.ResponseWriter, r *http.Request) {
 
 func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 
-	// max file size is 10MB
-	if err := r.ParseMultipartForm(10e7); err != nil {
-		ser.badRequest(w, "failed to parse the form: "+err.Error())
+	proposal, err := ser.readProposalParams(r)
+	if err != nil {
+		ser.badRequest(w, err.Error())
+	}
+
+	// TODO: fix context to come from the client
+	ctx, cancel := context.WithTimeout(context.Background(), config.GetRequestTimeout())
+	defer cancel()
+
+	if err := ser.app.SaveDocumentProposal(ctx, proposal); err != nil {
+		ser.serverError(w, "saving the proposal failed: "+err.Error())
 		return
 	}
 
-	var validationErr error
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
+	// max file size is 10MB
+	if err := r.ParseMultipartForm(10e7); err != nil {
+		return model.Proposal{}, errors.New("failed to parse the form: " + err.Error())
+	}
+
+	var err error
 	params := mux.Vars(r)
 	userID := params["userID"]
 
 	if userID == "" {
-		validationErr = multierr.Append(validationErr, errors.New("userID is missing"))
+		err = multierr.Append(err, errors.New("userID is missing"))
 	}
 
 	docName := r.FormValue("docID")
 	if docName == "" {
-		validationErr = multierr.Append(validationErr, errors.New("docID is missing"))
+		err = multierr.Append(err, errors.New("docID is missing"))
 	}
 	category := r.FormValue("category")
 	docStatus := r.FormValue("docStatus")
 
 	file, handler, err := r.FormFile("docFile")
 	if err != nil {
-		err = multierr.Append(validationErr, errors.New("failed to get the proposal file from form: "+err.Error()))
+		err = multierr.Append(err, errors.New("failed to get the proposal file from form: "+err.Error()))
 	}
 	defer file.Close()
 
-	if validationErr != nil {
-		ser.badRequest(w, validationErr.Error())
-		return
+	if err != nil {
+		return model.Proposal{}, err
 	}
 
 	bytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		ser.badRequest(w, "failed to read the proposal file: "+err.Error())
-		return
+		return model.Proposal{}, errors.New("failed to read the proposal file: " + err.Error())
 	}
 
 	if len(bytes) != int(handler.Size) {
-		ser.badRequest(w, fmt.Sprintf("upload error: size of received file: %v, size declared in the header: %v", len(bytes), handler.Size))
-		return
+		return model.Proposal{}, errors.New(fmt.Sprintf("upload error: size of received file: %v, size declared in the header: %v", len(bytes), handler.Size))
 	}
 
 	ser.logger.Info(fmt.Sprintf("received file: %s, size %v", handler.Filename, handler.Size))
 
-	proposal := model.Proposal{
+	return model.Proposal{
 		DocumentID: model.DocumentID{
 			DocumentName: docName,
 			Category:     category,
@@ -72,12 +88,5 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 			Content:            bytes,
 			ProposedStatus:     docStatus,
 		},
-	}
-
-	if err := ser.app.SaveDocumentProposal(r.Context(), proposal); err != nil {
-		ser.serverError(w, "saving the proposal failed: "+err.Error())
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
+	}, nil
 }
