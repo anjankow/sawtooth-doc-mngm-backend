@@ -52,16 +52,21 @@ const (
 	wait uint = 10
 )
 
-func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) (transactionID string, err error) {
-
+func getProposalAddress(proposal model.Proposal) (address string) {
 	proposalFamilyHash := hashing.CalculateFromStr(proposalFamily)
 	categoryHash := hashing.CalculateFromStr(proposal.Category)
 	docNameHash := hashing.CalculateFromStr(proposal.DocumentName)
 
-	address := proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
+	return proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
+}
+
+func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) (transactionID string, err error) {
+
+	address := getProposalAddress(proposal)
 	c.logger.Debug("submitting a proposal to address " + address)
 
 	payload := make(map[string]interface{})
+	payload["category"] = proposal.Category
 	payload["proposalID"] = proposal.ProposalID
 	payload["docName"] = proposal.DocumentName
 	payload["contentHash"] = proposal.ContentHash
