@@ -7,6 +7,7 @@ import (
 	"doc-management/internal/keymanager"
 	"doc-management/internal/model"
 	"doc-management/internal/repository/mongodb"
+	"errors"
 	"time"
 
 	"go.uber.org/zap"
@@ -15,6 +16,8 @@ import (
 const (
 	submitTimeout = 10 * time.Second
 )
+
+var ErrSearchTooBroad = errors.New("missing params to GET query")
 
 type App struct {
 	blkchnClient *blockchain.Client
@@ -31,7 +34,18 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 }
 
 func (a App) GetAllProposals(ctx context.Context, category string, userID string) ([]model.Proposal, error) {
-	return a.db.GetUserProposals(ctx, userID)
+
+	if userID != "" {
+		// if the user is defined, get all no matter the category
+		return a.db.GetUserProposals(ctx, userID)
+	}
+
+	if category == "" {
+		// if the user is not given and category is not given too, return error
+		return nil, ErrSearchTooBroad
+	}
+
+	return a.db.GetCategoryProposals(ctx, category)
 }
 
 func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
