@@ -25,6 +25,7 @@ import (
 	"doc-management/internal/hashing"
 	"doc-management/internal/model"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -33,19 +34,23 @@ import (
 	cbor "github.com/brianolson/cbor_go"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
 	proposalFamily         string = "proposals"
 	proposalFamilyVersion  string = "1.0"
-	batchSubmitAPI         string = "batches"
+	batchAPI               string = "batches"
 	batchStatusAPI         string = "batch_statuses"
+	transactionsAPI        string = "transactions"
 	stateAPI               string = "state"
 	contentTypeOctetStream string = "application/octet-stream"
 
 	wait uint = 10
 )
+
+var ErrInvalidContentHash = errors.New("content hash is invalid")
 
 type ProposalTransaction struct {
 	address     string
@@ -116,6 +121,40 @@ func getProposalAddress(proposal model.Proposal) (address string) {
 	return proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
 }
 
+func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
+	return nil
+}
+
+func (c Client) VerifyContentHash(ctx context.Context, proposal model.Proposal) error {
+	url := fmt.Sprintf("%s/%s", transactionsAPI, proposal.TransactionID)
+	response, err := c.sendRequest(ctx, url, nil, "")
+	if err != nil {
+		return err
+	}
+
+	var unmarshalled struct {
+		Data struct {
+			Payload string
+		}
+	}
+	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
+		return errors.New("failed to unmarshal /transactions GET response: " + err.Error())
+	}
+	var payload struct {
+		ContentHash string `cbor:"contentHash"`
+	}
+	if err := cbor.Loads(([]byte(unmarshalled.Data.Payload)), &payload.ContentHash); err != nil {
+		return errors.New("failed to unmarshal /transactions GET payload: " + err.Error())
+	}
+	c.logger.Info("received content hash info", zap.String("dbContentHash", proposal.ContentHash), zap.String("blkchnContentHash", payload.ContentHash))
+
+	if payload.ContentHash != proposal.ContentHash {
+		return ErrInvalidContentHash
+	}
+
+	return nil
+}
+
 func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
 
 	c.logger.Debug("submitting a proposal to address " + proposalTxn.address)
@@ -137,7 +176,7 @@ func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (tr
 	waitTime := uint(0)
 	startTime := time.Now()
 	response, err := c.sendRequest(
-		ctx, batchSubmitAPI, batchList, contentTypeOctetStream)
+		ctx, batchAPI, batchList, contentTypeOctetStream)
 	if err != nil {
 		return "", err
 	}

@@ -15,6 +15,13 @@ import (
 	"go.uber.org/zap"
 )
 
+type retrivedProposal struct {
+	ProposalID string `json:"proposalID"`
+	Name       string `json:"name"`
+	Category   string `json:"category"`
+	Content    string `json:"content"`
+}
+
 func (ser server) getDocProposals(w http.ResponseWriter, r *http.Request) {
 }
 
@@ -24,7 +31,7 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 
 	ser.logger.Info("getting all the proposals", zap.String("userID", userID), zap.String("category", category))
 
-	_, err := ser.app.GetAllProposals(r.Context(), category, userID)
+	propos, err := ser.app.GetAllProposals(r.Context(), category, userID)
 	if err != nil {
 		ser.serverError(w, "getting the proposals failed: "+err.Error())
 		return

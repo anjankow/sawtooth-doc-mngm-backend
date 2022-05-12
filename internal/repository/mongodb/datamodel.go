@@ -1,22 +1,31 @@
 package mongodb
 
 type DocVersion struct {
-	Version       string
-	TransactionID string
-	Content       []byte
-	Author        string
-	Signers       []string
+	// transaction ID on creation in doctracker family, used as a doc ID
+	TransactionID string `bson:"_id" json:"id"`
+	// transaction ID on creation in proposal family
+	ProposalTransactionID string `bson:"proposal_id" json:"proposal_id"`
+
+	Category string
+	Name     string
+
+	Author  string
+	Version string
+	Content []byte
+
+	Signers []string
 }
 
 type Proposal struct {
-	// transaction ID is used as a proposal ID
-	TransactionID string
-	Content       []byte
-	Author        string
-}
+	// transaction ID on creation in proposal family, used as a proposal ID
+	TransactionID string `bson:"_id" json:"id"`
 
-type StoredDocument struct {
-	DocumentName string              `bson:"_id" json:"id"`
-	Proposals    map[string]Proposal `bson:"proposals" json:"proposals"`
-	Versions     []DocVersion        `bson:"versions" json:"versions"`
+	Category string `bson:"category" json:"category"`
+	Name     string
+
+	Author  string `bson:"author" json:"author"`
+	Content []byte
+
+	Signers        []string
+	ProposedStatus string
 }

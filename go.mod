@@ -6,7 +6,6 @@ require (
 	github.com/brianolson/cbor_go v1.0.0
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1
-	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hyperledger/sawtooth-sdk-go v0.1.4
 	go.uber.org/zap v1.21.0

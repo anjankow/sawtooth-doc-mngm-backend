@@ -8,6 +8,7 @@ import (
 	"doc-management/internal/model"
 	"doc-management/internal/repository/mongodb"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -33,19 +34,48 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	}
 }
 
-func (a App) GetAllProposals(ctx context.Context, category string, userID string) ([]model.Proposal, error) {
+func (a App) GetAllProposals(ctx context.Context, category string, userID string) (propos []model.Proposal, err error) {
 
-	if userID != "" {
-		// if the user is defined, get all no matter the category
-		return a.db.GetUserProposals(ctx, userID)
-	}
-
-	if category == "" {
+	if userID == "" && category == "" {
 		// if the user is not given and category is not given too, return error
 		return nil, ErrSearchTooBroad
 	}
 
-	return a.db.GetCategoryProposals(ctx, category)
+	if userID != "" {
+		// if the user is defined, get all no matter the category
+		propos, err = a.db.GetUserProposals(ctx, userID)
+	} else {
+		propos, err = a.db.GetCategoryProposals(ctx, category)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	a.logger.Info(fmt.Sprint("read ", len(propos), " proposals, checking the content hash..."))
+
+	// verify the content hash against the blockchain
+	verified := []model.Proposal{}
+	for _, prop := range propos {
+		// TODO: parallelize
+		if err := a.blkchnClient.VerifyContentHash(ctx, prop); err != nil {
+
+			if err == blockchain.ErrInvalidContentHash {
+				a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", prop.TransactionID), zap.String("dbHash", prop.ContentHash))
+
+				_ = a.db.RemoveProposal(context.Background(), prop)
+				_ = a.blkchnClient.RemoveProposal(context.Background(), prop)
+				continue
+			}
+
+			a.logger.Warn("error when getting content hash from blockchain, skipping the check", zap.String("proposalID", prop.TransactionID), zap.String("dbHash", prop.ContentHash))
+		}
+
+		verified = append(verified, prop)
+	}
+
+	a.logger.Info(fmt.Sprint("content hash checked, returning ", len(verified), "/", len(propos), " proposals"))
+	return verified, nil
 }
 
 func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
