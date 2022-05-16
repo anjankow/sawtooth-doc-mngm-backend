@@ -24,6 +24,7 @@ import (
 
 	"doc-management/internal/hashing"
 	"doc-management/internal/model"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -31,7 +32,7 @@ import (
 	"math/rand"
 	"strconv"
 
-	cbor "github.com/brianolson/cbor_go"
+	"github.com/fxamacker/cbor"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"go.uber.org/zap"
@@ -66,16 +67,18 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 
 	address := getProposalAddress(proposal)
 
-	payload := make(map[string]interface{})
+	payload := make(map[interface{}]interface{})
 	payload["category"] = proposal.Category
 	payload["docName"] = proposal.DocumentName
 	payload["contentHash"] = proposal.ContentHash
 	payload["proposedStatus"] = proposal.ProposedStatus
 	payload["author"] = proposal.ModificationAuthor
-	payloadDump, err := cbor.Dumps(payload)
+
+	payloadDump, err := cbor.Marshal(payload, cbor.CanonicalEncOptions())
 	if err != nil {
 		return ProposalTransaction{}, errors.New("failed to dump the payload: " + err.Error())
 	}
+	fmt.Println(string(payloadDump))
 
 	// Construct TransactionHeader
 	rawTransactionHeader := transaction_pb2.TransactionHeader{
@@ -131,28 +134,42 @@ func (c Client) VerifyContentHash(ctx context.Context, proposal model.Proposal) 
 	if err != nil {
 		return err
 	}
+	contentHash, err := c.readContentHash(response)
 
+	if contentHash != proposal.ContentHash {
+		return ErrInvalidContentHash
+	}
+
+	return nil
+}
+func (c Client) readContentHash(response string) (string, error) {
 	var unmarshalled struct {
 		Data struct {
 			Payload string
 		}
 	}
 	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
-		return errors.New("failed to unmarshal /transactions GET response: " + err.Error())
+		return "", errors.New("failed to unmarshal /transactions GET response: " + err.Error())
 	}
+	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data.Payload)
+	if err != nil {
+		return "", errors.New("failed to decode /transactions GET payload: " + err.Error())
+	}
+
+	c.logger.Debug("unmarshalled payload", zap.String("payload", string(decoded)))
+
 	var payload struct {
 		ContentHash string `cbor:"contentHash"`
 	}
-	if err := cbor.Loads(([]byte(unmarshalled.Data.Payload)), &payload.ContentHash); err != nil {
-		return errors.New("failed to unmarshal /transactions GET payload: " + err.Error())
-	}
-	c.logger.Info("received content hash info", zap.String("dbContentHash", proposal.ContentHash), zap.String("blkchnContentHash", payload.ContentHash))
-
-	if payload.ContentHash != proposal.ContentHash {
-		return ErrInvalidContentHash
+	if err := cbor.Unmarshal([]byte(decoded), &payload); err != nil {
+		return "", errors.New("failed to unmarshal /transactions GET payload: " + err.Error())
 	}
 
-	return nil
+	contentHash := payload.ContentHash
+	c.logger.Debug("unmarshalled content hash info", zap.String("contentHash", contentHash))
+
+	return contentHash, nil
+
 }
 
 func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
