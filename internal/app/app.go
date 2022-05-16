@@ -22,6 +22,7 @@ var ErrSearchTooBroad = errors.New("missing params to GET query")
 
 type App struct {
 	blkchnClient *blockchain.Client
+	keyManager   keymanager.KeyManager
 	logger       *zap.Logger
 	db           mongodb.Repository
 }
@@ -29,6 +30,7 @@ type App struct {
 func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	return App{
 		blkchnClient: blockchain.NewClient(logger, config.GetValidatorRestApiAddr()),
+		keyManager:   keymanager.NewKeyManager(logger),
 		logger:       logger,
 		db:           db,
 	}
@@ -85,7 +87,7 @@ func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
 		return err
 	}
 
-	keys, err := keymanager.GenerateKeys()
+	keys, err := a.keyManager.GenerateKeys()
 	if err != nil {
 		return err
 	}
