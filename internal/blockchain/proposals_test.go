@@ -85,3 +85,22 @@ func TestReadContentHash(t *testing.T) {
 	assert.Equal(t, `e51de7e71de1d10f2a6ab832c250f2d911fdd6aabf90fe60f76d033118a098791bc4381c4129275b83fee62023a6cf8754d2e15569392566e2d559bb5fceed23`,
 		contentHash)
 }
+
+func TestReadExistingProposals(t *testing.T) {
+	logger := zap.NewExample()
+	client := NewClient(logger, config.GetValidatorRestApiAddr())
+	hashing.Initialize(logger)
+
+	responsePayload := `{
+		"data": "o2hjYXRlZ29yeWdnZW5lcmFsZ2RvY05hbWVhd2lwcm9wb3NhbHOChHiAMGEyYmUyYmE1MDdjMzZhMjZhOTNjODg2MzcwNDZhYmYwNTIwNDg4YTZiZjNmOGUzNjg3YjU3NzQzYWNmYzk2NTIwZWQ2ZTg4ZWE1ODUxNDU3MDk4MWIxMzczNDA5OGE3NmFhZWViYWEyOWFhODZkYTRkN2RkNjAyOWNmNzRlNjZqdXNlcnNmYWRzZmhhY2NlcHRlZHiANTJhZGQ0ZmJjOTQ2MTMwOWNhODIyNWY5ZmQ0ZDgwMjAyYmIzZTU3NmUzZDhkYzkwNDk0M2E0YjU5NmRlMWY1ZjdiM2M4OWZjOGI4MjNmMzMyYWVhNmE2ZTZkNWE5MDQ1ODQ2ODExN2I1YzU5NDVhNDY3M2QxM2E2ODY0MjM0ZDGEeIA0MWJkYTE0ZjliZjA0MDQ3NTY4NWUxNmQ4MGY1OGU5YmJhMGY1NDE3YWExMWQ2ZGUwMDRmZWY5ZWFkYjgwNzZhNmM0NDJjYTYwMTA2MmQxMTJlMzg3NzBhYTFiZWM2ZGE5MzVhYWQ0NzE0MDgxZDgwODllNTc2MmU0M2M0ZjlmZmp1c2Vyc2ZhZHNmaGFjY2VwdGVkeIA1MmFkZDRmYmM5NDYxMzA5Y2E4MjI1ZjlmZDRkODAyMDJiYjNlNTc2ZTNkOGRjOTA0OTQzYTRiNTk2ZGUxZjVmN2IzYzg5ZmM4YjgyM2YzMzJhZWE2YTZlNmQ1YTkwNDU4NDY4MTE3YjVjNTk0NWE0NjczZDEzYTY4NjQyMzRkMQ==",
+		"head": "33f53e2648059773251c0f08d44b04262c3a743cc65b7da41488baeef1e5f5b976b7b0d1ddb61822b9589c5cbb30b3d5fdcd2f8645e10976bbb2ed177fc26a92",
+		"link": "http://localhost:8008/state/8ed94c1d995baa66509891ad28030349ba9581e8c92528faab6a34349061a44b6f8fcd?head=33f53e2648059773251c0f08d44b04262c3a743cc65b7da41488baeef1e5f5b976b7b0d1ddb61822b9589c5cbb30b3d5fdcd2f8645e10976bbb2ed177fc26a92"
+	  }`
+	proposals, err := client.readExistingProposals(responsePayload)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(proposals))
+	assert.Equal(t, "general", proposals[0].Category)
+	assert.Equal(t, "52add4fbc9461309ca8225f9fd4d80202bb3e576e3d8dc904943a4b596de1f5f7b3c89fc8b823f332aea6a6e6d5a90458468117b5c5945a4673d13a6864234d1", proposals[1].ContentHash)
+
+}
