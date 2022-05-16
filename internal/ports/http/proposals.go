@@ -4,11 +4,11 @@ import (
 	"context"
 	"doc-management/internal/config"
 	"doc-management/internal/model"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/multierr"
@@ -31,12 +31,33 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 
 	ser.logger.Info("getting all the proposals", zap.String("userID", userID), zap.String("category", category))
 
-	_, err := ser.app.GetAllProposals(r.Context(), category, userID)
+	proposals, err := ser.app.GetAllProposals(r.Context(), category, userID)
 	if err != nil {
 		ser.serverError(w, "getting the proposals failed: "+err.Error())
 		return
 	}
 
+	proposToReturn := make([]retrivedProposal, len(proposals))
+	for i, proposal := range proposals {
+		proposToReturn[i] = retrivedProposal{
+			ProposalID: proposal.TransactionID,
+			Name:       proposal.DocumentName,
+			Category:   proposal.Category,
+			// limit the content length to display
+			Content: string(proposal.Content[:80]),
+		}
+	}
+
+	response, err := json.Marshal(proposToReturn)
+	if err != nil {
+		ser.serverError(w, "marshalling the response failed: "+err.Error())
+		return
+	}
+
+	if _, err := w.Write(response); err != nil {
+		ser.serverError(w, "failed to write the response: "+err.Error())
+		return
+	}
 }
 
 func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +88,7 @@ func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
 
 	var err error
 	params := mux.Vars(r)
+
 	docName := normalize(params["docName"])
 	if docName == "" {
 		err = multierr.Append(err, errors.New("docName is missing"))
@@ -112,8 +134,4 @@ func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
 			ProposedStatus:     docStatus,
 		},
 	}, nil
-}
-
-func normalize(str string) string {
-	return strings.TrimSpace(str)
 }

@@ -78,7 +78,6 @@ func (c Client) sendRequest(
 
 	c.logger.Debug("sending " + req.Method + " request to " + url)
 	response, err := http.DefaultClient.Do(req)
-	c.logger.Debug("request sent")
 
 	if err != nil {
 		return "", errors.New(

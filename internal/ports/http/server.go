@@ -3,6 +3,7 @@ package http
 import (
 	"doc-management/internal/app"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -72,4 +73,8 @@ func (ser server) Run() error {
 	}
 
 	return ser.httpServer.ListenAndServe()
+}
+
+func normalize(str string) string {
+	return strings.TrimSpace(str)
 }
