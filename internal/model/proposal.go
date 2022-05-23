@@ -3,23 +3,22 @@ package model
 import (
 	"doc-management/internal/hashing"
 	"errors"
+
+	"github.com/google/uuid"
 )
 
 type Proposal struct {
-	DocumentID
-	ProposalContent
-	Signers []string
-}
-
-type ProposalContent struct {
-	// transaction ID is unique for each proposal and is used as a proposal ID
-	TransactionID string
+	ProposalID   string
+	DocumentName string
+	Category     string
 
 	ModificationAuthor string
 	Content            []byte
 	ContentHash        string
+	ProposedStatus     string
+	CurrentStatus      string
 
-	ProposedStatus string
+	Signers []string
 }
 
 func (proposal Proposal) Validate() error {
@@ -31,11 +30,14 @@ func (proposal Proposal) Validate() error {
 }
 
 func (proposal *Proposal) Complete() {
+
+	proposal.ProposalID = uuid.NewString()
+
 	if proposal.Category == "" {
 		proposal.Category = DefaultCategory
 	}
 	if proposal.ProposedStatus == "" {
-		proposal.ProposedStatus = string(DocStatusAccepted)
+		proposal.ProposedStatus = string(DocStatusActive)
 	}
 	proposal.ContentHash = hashing.Calculate(proposal.Content)
 }

@@ -39,8 +39,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type action string
+
 const (
-	proposalFamily         string = "proposals"
+	actionInsert action = "insert"
+	actionVote   action = "vote"
+	actionDelete action = "delete"
+)
+
+const (
 	proposalFamilyVersion  string = "1.0"
 	batchAPI               string = "batches"
 	batchStatusAPI         string = "batch_statuses"
@@ -54,20 +61,28 @@ const (
 var ErrInvalidContentHash = errors.New("content hash is invalid")
 
 type ProposalTransaction struct {
-	address     string
-	transaction transaction_pb2.Transaction
-	signer      *signing.Signer
+	proposalAddress string
+	transaction     transaction_pb2.Transaction
+	signer          *signing.Signer
 }
 
 func (t ProposalTransaction) GetTransactionID() string {
 	return t.transaction.HeaderSignature
 }
 
+func (t ProposalTransaction) GetProposalAddress() string {
+	return t.proposalAddress
+}
+
 func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (ProposalTransaction, error) {
 
-	address := getProposalAddress(proposal)
+	proposalDataAddress := getProposalAddress(proposal)
+	authorAddress := getUserAddress(proposal.ModificationAuthor)
+	docAddress := getDocAddress(proposal)
 
 	payload := make(map[interface{}]interface{})
+	payload["action"] = actionInsert
+	payload["proposalID"] = proposal.ProposalID
 	payload["category"] = proposal.Category
 	payload["docName"] = proposal.DocumentName
 	payload["contentHash"] = proposal.ContentHash
@@ -78,7 +93,6 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 	if err != nil {
 		return ProposalTransaction{}, errors.New("failed to dump the payload: " + err.Error())
 	}
-	fmt.Println(string(payloadDump))
 
 	// Construct TransactionHeader
 	rawTransactionHeader := transaction_pb2.TransactionHeader{
@@ -87,8 +101,8 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 		FamilyVersion:    proposalFamilyVersion,
 		Nonce:            strconv.Itoa(rand.Int()),
 		BatcherPublicKey: signer.GetPublicKey().AsHex(),
-		Inputs:           []string{address},
-		Outputs:          []string{address},
+		Inputs:           []string{proposalDataAddress, authorAddress, docAddress},
+		Outputs:          []string{proposalDataAddress, authorAddress, docAddress},
 		PayloadSha512:    hashing.Calculate(payloadDump),
 	}
 
@@ -110,18 +124,10 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 	}
 
 	return ProposalTransaction{
-		address:     address,
-		transaction: transaction,
-		signer:      signer,
+		proposalAddress: proposalDataAddress,
+		transaction:     transaction,
+		signer:          signer,
 	}, nil
-}
-
-func getProposalAddress(proposal model.Proposal) (address string) {
-	proposalFamilyHash := hashing.CalculateFromStr(proposalFamily)
-	categoryHash := hashing.CalculateFromStr(proposal.Category)
-	docNameHash := hashing.CalculateFromStr(proposal.DocumentName)
-
-	return proposalFamilyHash[0:6] + categoryHash[0:6] + docNameHash[0:58]
 }
 
 func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
@@ -140,7 +146,7 @@ func (c Client) GetProposals(ctx context.Context, proposal model.Proposal) ([]mo
 }
 
 func (c Client) VerifyContentHash(ctx context.Context, proposal model.Proposal) error {
-	url := fmt.Sprintf("%s/%s", transactionsAPI, proposal.TransactionID)
+	url := fmt.Sprintf("%s/%s", stateAPI, getProposalAddress(proposal))
 	response, err := c.sendRequest(ctx, url, nil, "")
 	if err != nil {
 		return err
@@ -182,17 +188,13 @@ func (c Client) readExistingProposals(response string) ([]model.Proposal, error)
 	proposals = make([]model.Proposal, len(payload.Proposals))
 	for i, existing := range payload.Proposals {
 		proposals[i] = model.Proposal{
-			DocumentID: model.DocumentID{
-				DocumentName: payload.DocName,
-				Category:     payload.Category,
-			},
-			ProposalContent: model.ProposalContent{
-				TransactionID:      existing.ProposalID,
-				ModificationAuthor: existing.Author,
-				Content:            []byte{},
-				ContentHash:        existing.ContentHash,
-				ProposedStatus:     existing.ProposedStatus,
-			},
+			DocumentName:       payload.DocName,
+			Category:           payload.Category,
+			ProposalID:         existing.ProposalID,
+			ModificationAuthor: existing.Author,
+			Content:            []byte{},
+			ContentHash:        existing.ContentHash,
+			ProposedStatus:     existing.ProposedDocStatus,
 		}
 	}
 
@@ -231,7 +233,7 @@ func (c Client) readContentHash(response string) (string, error) {
 
 func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
 
-	c.logger.Debug("submitting a proposal to address " + proposalTxn.address)
+	c.logger.Debug("submitting a proposal to address " + proposalTxn.proposalAddress)
 
 	// Get BatchList
 	rawBatchList, err := createBatchList(
@@ -274,8 +276,12 @@ func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (tr
 type storedProposal struct {
 	_ struct{} `cbor:",toarray"`
 
-	ProposalID     string `cbor:"proposalID"`
-	Author         string `cbor:"author"`
-	ProposedStatus string `cbor:"proposedStatus"`
-	ContentHash    string `cbor:"contentHash"`
+	ProposalID        string   `cbor:"proposalID"`
+	DocName           string   `cbor:"docName"`
+	Category          string   `cbor:"category"`
+	Author            string   `cbor:"author"`
+	Signers           []string `cbor:"signers"`
+	ProposedDocStatus string   `cbor:"proposedDocStatus"`
+	CurrentStatus     string   `cbor:"currentStatus"`
+	ContentHash       string   `cbor:"contentHash"`
 }

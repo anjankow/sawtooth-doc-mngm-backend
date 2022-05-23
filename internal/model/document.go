@@ -3,21 +3,17 @@ package model
 type DocStatus string
 
 const (
+	DocStatusActive   DocStatus = "active"
 	DocStatusAccepted DocStatus = "accepted"
 	DocStatusDeleted  DocStatus = "deleted"
 )
 
 const DefaultCategory = "general"
 
-// DocumentID to uniquely identify a document
-type DocumentID struct {
-	DocumentName string
-	Category     string
-}
-
 // Document existing on the blockchain
 type Document struct {
-	DocumentID
+	DocumentName string
+	Category     string
 
 	ModificationAuthor string
 	Content            []byte
@@ -28,5 +24,5 @@ type Document struct {
 }
 
 func (status DocStatus) IsValid() bool {
-	return status == DocStatusAccepted || status == DocStatusDeleted
+	return status == DocStatusAccepted || status == DocStatusDeleted || status == DocStatusActive
 }

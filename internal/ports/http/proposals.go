@@ -42,7 +42,7 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 	proposToReturn := make([]retrivedProposal, len(proposals))
 	for i, proposal := range proposals {
 		proposToReturn[i] = retrivedProposal{
-			ProposalID: proposal.TransactionID,
+			ProposalID: proposal.ProposalID,
 			Name:       proposal.DocumentName,
 			Category:   proposal.Category,
 			Author:     proposal.ModificationAuthor,
@@ -132,14 +132,10 @@ func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
 	ser.logger.Info(fmt.Sprintf("received file: %s, size %v", handler.Filename, handler.Size))
 
 	return model.Proposal{
-		DocumentID: model.DocumentID{
-			DocumentName: docName,
-			Category:     category,
-		},
-		ProposalContent: model.ProposalContent{
-			ModificationAuthor: userID,
-			Content:            bytes,
-			ProposedStatus:     docStatus,
-		},
+		DocumentName:       docName,
+		Category:           category,
+		ModificationAuthor: userID,
+		Content:            bytes,
+		ProposedStatus:     docStatus,
 	}, nil
 }

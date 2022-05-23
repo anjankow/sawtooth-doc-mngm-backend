@@ -21,25 +21,21 @@ func TestVerifyContentHash(t *testing.T) {
 
 	content := "hulajnogi sa ze stonogi"
 	proposal := model.Proposal{
-		DocumentID: model.DocumentID{
-			DocumentName: "tralala",
-			Category:     "general",
-		},
-		ProposalContent: model.ProposalContent{
-			TransactionID:      "",
-			ModificationAuthor: "ja",
-			Content:            []byte(content),
-			ContentHash:        hashing.CalculateFromStr(content),
-			ProposedStatus:     "accepted",
-		},
+		DocumentName:       "tralala",
+		Category:           "general",
+		ModificationAuthor: "ja",
+		Content:            []byte(content),
+		ContentHash:        hashing.CalculateFromStr(content),
+		ProposedStatus:     "accepted",
 	}
+	proposal.Complete()
+
 	keyMan := keymanager.NewKeyManager(logger)
 	keys, err := keyMan.GenerateKeys()
 	require.NoError(t, err)
 
 	txn, err := NewProposalTransaction(proposal, keys.GetSigner())
 	require.NoError(t, err)
-	proposal.TransactionID = txn.GetTransactionID()
 
 	_, err = client.Submit(context.TODO(), txn)
 	require.NoError(t, err)

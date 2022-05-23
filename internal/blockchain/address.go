@@ -27,6 +27,7 @@ var (
 	calcOnce sync.Once
 )
 
+// hashing lib needs to be initialized first
 func initHashVars() {
 	calcOnce.Do(func() {
 		familyHash = hashing.CalculateFromStr(proposalFamily)
@@ -46,10 +47,10 @@ func getDocAddress(proposal model.Proposal) (address string) {
 	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:52]
 }
 
-func getProposalDataAddress(proposal model.Proposal) (address string) {
+func getProposalAddress(proposal model.Proposal) (address string) {
 	initHashVars()
 
-	proposalIDHash := hashing.CalculateFromStr(proposal.TransactionID)
+	proposalIDHash := hashing.CalculateFromStr(proposal.ProposalID)
 
 	return familyHash[0:6] + proposalDataPrefixHash[0:6] + proposalIDHash[0:58]
 }

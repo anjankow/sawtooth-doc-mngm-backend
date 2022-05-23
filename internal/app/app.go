@@ -71,14 +71,14 @@ func (a App) GetAllProposals(ctx context.Context, category string, userID string
 		if err := a.blkchnClient.VerifyContentHash(ctx, prop); err != nil {
 
 			if err == blockchain.ErrInvalidContentHash {
-				a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", prop.TransactionID), zap.String("dbHash", prop.ContentHash))
+				a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", prop.ProposalID), zap.String("dbHash", prop.ContentHash))
 
 				_ = a.db.RemoveProposal(context.Background(), prop)
 				_ = a.blkchnClient.RemoveProposal(context.Background(), prop)
 				continue
 			}
 
-			a.logger.Warn("error when getting content hash from blockchain, skipping the check", zap.String("proposalID", prop.TransactionID), zap.String("dbHash", prop.ContentHash))
+			a.logger.Warn("error when getting content hash from blockchain, skipping the check", zap.String("proposalID", prop.ProposalID), zap.String("dbHash", prop.ContentHash))
 		}
 
 		verified = append(verified, prop)
@@ -96,19 +96,19 @@ func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
 		return err
 	}
 
-	// check if this proposal already exists
-	existingPropos, err := a.blkchnClient.GetProposals(ctx, proposal)
-	if err != nil {
-		a.logger.Error(fmt.Sprint("failed to get the existing proposals for the document ", proposal.DocumentName,
-			", category ", proposal.Category, "; proceeding with submitting the new proposal"))
-	}
+	// // check if this proposal already exists
+	// existingPropos, err := a.blkchnClient.GetProposals(ctx, proposal)
+	// if err != nil {
+	// 	a.logger.Error(fmt.Sprint("failed to get the existing proposals for the document ", proposal.DocumentName,
+	// 		", category ", proposal.Category, "; proceeding with submitting the new proposal"))
+	// }
 
-	for _, existing := range existingPropos {
-		if existing.ContentHash == proposal.ContentHash {
-			a.logger.Debug("proposal already exists", zap.String("category", proposal.Category), zap.String("docName", proposal.DocumentName), zap.String("contentHash", proposal.ContentHash))
-		}
-		return ErrProposalExists
-	}
+	// for _, existing := range existingPropos {
+	// 	if existing.ContentHash == proposal.ContentHash {
+	// 		a.logger.Debug("proposal already exists", zap.String("category", proposal.Category), zap.String("docName", proposal.DocumentName), zap.String("contentHash", proposal.ContentHash))
+	// 	}
+	// 	return ErrProposalExists
+	// }
 
 	// TODO: use the user's keys obtained from the key manager
 	keys, err := a.keyManager.GenerateKeys()
@@ -121,9 +121,8 @@ func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
 	if err != nil {
 		return err
 	}
-	proposal.TransactionID = transaction.GetTransactionID()
 
-	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("transactionID", proposal.TransactionID))
+	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
 
 	// first insert the transaction to the DB
 	if err := a.db.InsertProposal(ctx, proposal, transaction.GetTransactionID()); err != nil {
@@ -133,7 +132,7 @@ func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
 	// submit to blockchain only if all the previous operations succeeded, as this action is irreversible
 	if _, err = a.blkchnClient.Submit(ctx, transaction); err != nil {
 		// remove the doc from the database
-		a.logger.Debug("removing the proposal content from the database on error", zap.String("transactionID", proposal.TransactionID))
+		a.logger.Debug("removing the proposal content from the database on error", zap.String("proposalID", proposal.ProposalID))
 		_ = a.db.RemoveProposal(context.Background(), proposal)
 		return err
 	}
