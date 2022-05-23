@@ -16,10 +16,12 @@ import (
 )
 
 type retrivedProposal struct {
-	ProposalID string `json:"proposalID"`
-	Name       string `json:"name"`
-	Category   string `json:"category"`
-	Content    string `json:"content"`
+	ProposalID string   `json:"proposalID"`
+	Name       string   `json:"name"`
+	Category   string   `json:"category"`
+	Content    string   `json:"content"`
+	Author     string   `json:"author"`
+	Signers    []string `json:"signers"`
 }
 
 func (ser server) getDocProposals(w http.ResponseWriter, r *http.Request) {
@@ -43,8 +45,14 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 			ProposalID: proposal.TransactionID,
 			Name:       proposal.DocumentName,
 			Category:   proposal.Category,
-			// limit the content length to display
-			Content: string(proposal.Content[:80]),
+			Author:     proposal.ModificationAuthor,
+			Signers:    proposal.Signers,
+		}
+		// limit the content length to display
+		if len(proposal.Content) > 80 {
+			proposToReturn[i].Content = string(proposal.Content[:80])
+		} else {
+			proposToReturn[i].Content = string(proposal.Content)
 		}
 	}
 

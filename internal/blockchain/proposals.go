@@ -125,6 +125,7 @@ func getProposalAddress(proposal model.Proposal) (address string) {
 }
 
 func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
+	// TODO
 	return nil
 }
 

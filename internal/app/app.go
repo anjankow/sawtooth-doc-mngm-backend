@@ -9,13 +9,15 @@ import (
 	"doc-management/internal/repository/mongodb"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
 )
 
 const (
-	submitTimeout = 10 * time.Second
+	submitTimeout  = 10 * time.Second
+	notQueryPrefix = "!"
 )
 
 var ErrSearchTooBroad = errors.New("missing params to GET query")
@@ -46,7 +48,12 @@ func (a App) GetAllProposals(ctx context.Context, category string, userID string
 
 	if userID != "" {
 		// if the user is defined, get all no matter the category
-		propos, err = a.db.GetUserProposals(ctx, userID)
+		if strings.HasPrefix(userID, notQueryPrefix) {
+			propos, err = a.db.GetToSignProposals(ctx, strings.TrimPrefix(userID, notQueryPrefix))
+		} else {
+			propos, err = a.db.GetUserProposals(ctx, userID)
+		}
+
 	} else {
 		propos, err = a.db.GetCategoryProposals(ctx, category)
 	}

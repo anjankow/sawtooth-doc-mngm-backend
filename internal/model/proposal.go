@@ -8,6 +8,7 @@ import (
 type Proposal struct {
 	DocumentID
 	ProposalContent
+	Signers []string
 }
 
 type ProposalContent struct {

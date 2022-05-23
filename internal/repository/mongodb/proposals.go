@@ -71,6 +71,17 @@ func (b Repository) RemoveProposal(ctx context.Context, proposal model.Proposal)
 
 }
 
+func (b Repository) GetToSignProposals(ctx context.Context, userID string) ([]model.Proposal, error) {
+
+	filter := bson.M{
+		"author": bson.M{
+			"$ne": userID,
+		},
+	}
+
+	return b.getProposals(ctx, filter)
+}
+
 func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]model.Proposal, error) {
 	coll := b.client.Database(config.GetDatabaseName()).Collection(proposalsCollection)
 
@@ -101,6 +112,7 @@ func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]model.Pr
 				ContentHash:        contentHash,
 				ProposedStatus:     stored.ProposedStatus,
 			},
+			Signers: stored.Signers,
 		}
 	}
 
