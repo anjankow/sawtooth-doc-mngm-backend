@@ -130,3 +130,21 @@ func (b Repository) GetCategoryProposals(ctx context.Context, category string) (
 
 	return b.getProposals(ctx, filter)
 }
+
+func (b Repository) FillProposalContent(ctx context.Context, proposal model.Proposal) (model.Proposal, error) {
+
+	filter := bson.M{
+		"_id": proposal.ProposalID,
+	}
+
+	fromDB, err := b.getProposals(ctx, filter)
+	if err != nil {
+		return model.Proposal{}, errors.New("getting proposal from the db failed: " + err.Error())
+	}
+	if len(fromDB) != 1 {
+		return model.Proposal{}, errors.New(fmt.Sprint("invalid length of getProposals result: ", len(fromDB)))
+	}
+
+	proposal.Content = fromDB[0].Content
+	return proposal, nil
+}

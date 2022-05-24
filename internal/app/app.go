@@ -4,6 +4,7 @@ import (
 	"context"
 	"doc-management/internal/blockchain"
 	"doc-management/internal/config"
+	"doc-management/internal/hashing"
 	"doc-management/internal/keymanager"
 	"doc-management/internal/model"
 	"doc-management/internal/repository/mongodb"
@@ -51,7 +52,9 @@ func (a App) GetAllProposals(ctx context.Context, category string, userID string
 		if strings.HasPrefix(userID, notQueryPrefix) {
 			propos, err = a.db.GetToSignProposals(ctx, strings.TrimPrefix(userID, notQueryPrefix))
 		} else {
-			propos, err = a.db.GetUserProposals(ctx, userID)
+
+			return a.getUserProposals(ctx, userID)
+
 		}
 	} else {
 		propos, err = a.db.GetCategoryProposals(ctx, category)
@@ -81,6 +84,43 @@ func (a App) GetAllProposals(ctx context.Context, category string, userID string
 		}
 
 		verified = append(verified, prop)
+	}
+
+	a.logger.Info(fmt.Sprint("content hash checked, returning ", len(verified), "/", len(propos), " proposals"))
+	return verified, nil
+}
+
+func (a App) getUserProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
+	propos, err = a.blkchnClient.GetUserProposals(ctx, userID)
+	if err != nil {
+		// if this user doesn't yet exist on the blockchain
+		// he simply hasn't created anything = no error
+		if err == blockchain.ErrNotFound {
+			return propos, nil
+		}
+
+		return propos, err
+	}
+
+	var verified []model.Proposal
+	// TODO: parallelize
+	for _, p := range propos {
+		pWithContent, err := a.db.FillProposalContent(ctx, p)
+		if err != nil {
+			a.logger.Error("error when getting the proposal content: "+err.Error(), zap.String("proposalID", p.ProposalID))
+			continue
+		}
+
+		dbContentHash := hashing.Calculate(pWithContent.Content)
+		if dbContentHash != p.ContentHash {
+			a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", p.ProposalID), zap.String("dbHash", dbContentHash), zap.String("expectedHash", p.ContentHash))
+
+			_ = a.db.RemoveProposal(context.Background(), p)
+			_ = a.blkchnClient.RemoveProposal(context.Background(), p)
+			continue
+		}
+
+		verified = append(verified, pWithContent)
 	}
 
 	a.logger.Info(fmt.Sprint("content hash checked, returning ", len(verified), "/", len(propos), " proposals"))
