@@ -96,19 +96,19 @@ func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
 		return err
 	}
 
-	// // check if this proposal already exists
-	// existingPropos, err := a.blkchnClient.GetProposals(ctx, proposal)
-	// if err != nil {
-	// 	a.logger.Error(fmt.Sprint("failed to get the existing proposals for the document ", proposal.DocumentName,
-	// 		", category ", proposal.Category, "; proceeding with submitting the new proposal"))
-	// }
+	// check if this proposal already exists
+	existingPropos, err := a.blkchnClient.GetDocProposals(ctx, proposal.Category, proposal.DocumentName)
+	if err != nil && err != blockchain.ErrNotFound {
+		a.logger.Error(fmt.Sprint("failed to get the existing proposals for the document ", proposal.DocumentName,
+			", category ", proposal.Category, "; proceeding with submitting the new proposal"))
+	}
 
-	// for _, existing := range existingPropos {
-	// 	if existing.ContentHash == proposal.ContentHash {
-	// 		a.logger.Debug("proposal already exists", zap.String("category", proposal.Category), zap.String("docName", proposal.DocumentName), zap.String("contentHash", proposal.ContentHash))
-	// 	}
-	// 	return ErrProposalExists
-	// }
+	for _, existing := range existingPropos {
+		if existing.ContentHash == proposal.ContentHash {
+			a.logger.Debug("proposal already exists", zap.String("category", proposal.Category), zap.String("docName", proposal.DocumentName), zap.String("existingProposalID", existing.ProposalID))
+			return ErrProposalExists
+		}
+	}
 
 	// TODO: use the user's keys obtained from the key manager
 	keys, err := a.keyManager.GenerateKeys()

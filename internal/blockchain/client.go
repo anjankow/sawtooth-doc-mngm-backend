@@ -18,6 +18,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	ErrNotFound = errors.New("responded with status 404")
+)
+
 type Client struct {
 	logger *zap.Logger
 	url    string
@@ -85,7 +89,7 @@ func (c Client) sendRequest(
 	}
 	if response.StatusCode == 404 {
 		c.logger.Debug(fmt.Sprintf("%v", response))
-		return "", errors.New("responded with status 404")
+		return "", ErrNotFound
 	} else if response.StatusCode >= 400 {
 		return "", errors.New(
 			fmt.Sprintf("Error %d: %s", response.StatusCode, response.Status))

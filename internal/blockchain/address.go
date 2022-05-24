@@ -38,11 +38,11 @@ func initHashVars() {
 	})
 }
 
-func getDocAddress(proposal model.Proposal) (address string) {
+func getDocAddress(category string, docName string) (address string) {
 	initHashVars()
 
-	categoryHash := hashing.CalculateFromStr(proposal.Category)
-	docNameHash := hashing.CalculateFromStr(proposal.DocumentName)
+	categoryHash := hashing.CalculateFromStr(category)
+	docNameHash := hashing.CalculateFromStr(docName)
 
 	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:52]
 }

@@ -78,7 +78,7 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 
 	proposalDataAddress := getProposalAddress(proposal)
 	authorAddress := getUserAddress(proposal.ModificationAuthor)
-	docAddress := getDocAddress(proposal)
+	docAddress := getDocAddress(proposal.Category, proposal.DocumentName)
 
 	payload := make(map[interface{}]interface{})
 	payload["action"] = actionInsert
@@ -133,6 +133,46 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
 	// TODO
 	return nil
+}
+
+// GetDocProposals fills in only proposal ID and content hash
+func (c Client) GetDocProposals(ctx context.Context, category string, documentName string) (docProposals []model.Proposal, err error) {
+	addr := getDocAddress(category, documentName)
+	url := fmt.Sprintf("%s/%s", stateAPI, addr)
+	response, err := c.sendRequest(ctx, url, nil, "")
+	if err != nil {
+		return docProposals, err
+	}
+
+	var unmarshalled struct {
+		Data string
+	}
+	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
+		return docProposals, errors.New("failed to unmarshal doc state response: " + err.Error())
+	}
+	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data)
+	if err != nil {
+		return docProposals, errors.New("failed to decode doc state payload: " + err.Error())
+	}
+
+	var payload struct {
+		Proposals map[string]string `cbor:"proposals"`
+	}
+	if err := cbor.Unmarshal([]byte(decoded), &payload); err != nil {
+		return docProposals, errors.New("failed to unmarshal doc state payload: " + err.Error())
+	}
+	c.logger.Debug("unmarshalled payload", zap.Any("payload", payload))
+
+	for proposalID, contentHash := range payload.Proposals {
+		docProposals = append(docProposals, model.Proposal{
+			DocumentName: documentName,
+			Category:     category,
+			ProposalID:   proposalID,
+			ContentHash:  contentHash,
+		})
+	}
+
+	return docProposals, nil
 }
 
 func (c Client) GetProposals(ctx context.Context, proposal model.Proposal) ([]model.Proposal, error) {
