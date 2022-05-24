@@ -47,12 +47,19 @@ func getDocAddress(category string, docName string) (address string) {
 	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:52]
 }
 
+// getProposalAddressFromID calculates the proposal address; if the proposal ID is empty,
+// it returns the address of all the proposals
 func getProposalAddressFromID(proposalID string) (address string) {
 	initHashVars()
 
-	proposalIDHash := hashing.CalculateFromStr(proposalID)
+	address = familyHash[0:6] + proposalDataPrefixHash[0:6]
 
-	return familyHash[0:6] + proposalDataPrefixHash[0:6] + proposalIDHash[0:58]
+	if proposalID != "" {
+		proposalIDHash := hashing.CalculateFromStr(proposalID)
+		address += proposalIDHash[0:58]
+	}
+
+	return address
 }
 
 func getProposalAddress(proposal model.Proposal) (address string) {

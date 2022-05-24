@@ -10,18 +10,15 @@ import (
 	"doc-management/internal/repository/mongodb"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
 )
 
 const (
-	submitTimeout  = 10 * time.Second
-	notQueryPrefix = "!"
+	submitTimeout = 10 * time.Second
 )
 
-var ErrSearchTooBroad = errors.New("missing params to GET query")
 var ErrProposalExists = errors.New("proposal already exists")
 
 type App struct {
@@ -40,68 +37,24 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	}
 }
 
-func (a App) GetAllProposals(ctx context.Context, category string, userID string) (propos []model.Proposal, err error) {
-
-	if userID == "" && category == "" {
-		// if the user is not given and category is not given too, return error
-		return nil, ErrSearchTooBroad
-	}
-
-	if userID != "" {
-		// if the user is defined, get all no matter the category
-		if strings.HasPrefix(userID, notQueryPrefix) {
-			propos, err = a.db.GetToSignProposals(ctx, strings.TrimPrefix(userID, notQueryPrefix))
-		} else {
-
-			return a.getUserProposals(ctx, userID)
-
-		}
-	} else {
-		propos, err = a.db.GetCategoryProposals(ctx, category)
-	}
-
+func (a App) GetToSignProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
+	propos, err = a.blkchnClient.GetActiveProposals(ctx)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	a.logger.Info(fmt.Sprint("read ", len(propos), " proposals, checking the content hash..."))
-
-	// verify the content hash against the blockchain
-	verified := []model.Proposal{}
-	for _, prop := range propos {
-		// TODO: parallelize
-		if err := a.blkchnClient.VerifyContentHash(ctx, prop); err != nil {
-
-			if err == blockchain.ErrInvalidContentHash {
-				a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", prop.ProposalID), zap.String("dbHash", prop.ContentHash))
-
-				_ = a.db.RemoveProposal(context.Background(), prop)
-				_ = a.blkchnClient.RemoveProposal(context.Background(), prop)
-				continue
-			}
-
-			a.logger.Warn("error when getting content hash from blockchain, skipping the check", zap.String("proposalID", prop.ProposalID), zap.String("dbHash", prop.ContentHash))
+	var proposByOthers []model.Proposal
+	for _, p := range propos {
+		if p.ModificationAuthor != userID {
+			proposByOthers = append(proposByOthers, p)
 		}
-
-		verified = append(verified, prop)
 	}
+	a.logger.Info(fmt.Sprint("to sign: ", len(proposByOthers), "/", len(propos)), zap.String("userID", userID))
 
-	a.logger.Info(fmt.Sprint("content hash checked, returning ", len(verified), "/", len(propos), " proposals"))
-	return verified, nil
+	return a.fillAndVerifyContent(ctx, proposByOthers)
 }
 
-func (a App) getUserProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
-	propos, err = a.blkchnClient.GetUserProposals(ctx, userID)
-	if err != nil {
-		// if this user doesn't yet exist on the blockchain
-		// he simply hasn't created anything = no error
-		if err == blockchain.ErrNotFound {
-			return propos, nil
-		}
-
-		return propos, err
-	}
-
+func (a App) fillAndVerifyContent(ctx context.Context, propos []model.Proposal) ([]model.Proposal, error) {
 	var verified []model.Proposal
 	// TODO: parallelize
 	for _, p := range propos {
@@ -124,7 +77,23 @@ func (a App) getUserProposals(ctx context.Context, userID string) (propos []mode
 	}
 
 	a.logger.Info(fmt.Sprint("content hash checked, returning ", len(verified), "/", len(propos), " proposals"))
+
 	return verified, nil
+}
+
+func (a App) GetUserProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
+	propos, err = a.blkchnClient.GetUserProposals(ctx, userID)
+	if err != nil {
+		// if this user doesn't yet exist on the blockchain
+		// he simply hasn't created anything = no error
+		if err == blockchain.ErrNotFound {
+			return propos, nil
+		}
+
+		return propos, err
+	}
+
+	return a.fillAndVerifyContent(ctx, propos)
 }
 
 func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {

@@ -9,10 +9,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+)
+
+const (
+	notQueryPrefix = "!"
 )
 
 type retrivedProposal struct {
@@ -33,7 +38,22 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 
 	ser.logger.Info("getting all the proposals", zap.String("userID", userID), zap.String("category", category))
 
-	proposals, err := ser.app.GetAllProposals(r.Context(), category, userID)
+	if userID == "" && category == "" {
+		ser.badRequest(w, "the query is too broad, include some filters")
+		return
+	}
+
+	var proposals []model.Proposal
+	var err error
+
+	if strings.HasPrefix(userID, notQueryPrefix) {
+		userID = strings.TrimPrefix(userID, notQueryPrefix)
+		proposals, err = ser.app.GetToSignProposals(r.Context(), userID)
+
+	} else {
+		proposals, err = ser.app.GetUserProposals(r.Context(), userID)
+	}
+
 	if err != nil {
 		ser.serverError(w, "getting the proposals failed: "+err.Error())
 		return

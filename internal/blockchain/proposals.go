@@ -20,6 +20,7 @@ package blockchain
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"doc-management/internal/model"
@@ -60,6 +61,63 @@ func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) err
 	return nil
 }
 
+// GetActiveProposals returns all active proposals
+func (c Client) GetActiveProposals(ctx context.Context) (proposals []model.Proposal, err error) {
+	// fetch all the proposals = pass only the part of address corresponding to proposals
+	addr := getProposalAddressFromID("")
+	filter := url.Values{}
+	filter.Set("address", addr)
+
+	url := fmt.Sprintf("%s?%s", stateAPI, filter.Encode())
+	// TODO: paging, limits
+	response, err := c.sendRequest(ctx, url, nil, "")
+	if err != nil {
+		return
+	}
+
+	var unmarshalled struct {
+		Data []json.RawMessage
+	}
+	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
+		return proposals, errors.New("get active proposals: failed to unmarshal the response: " + err.Error())
+	}
+	c.logger.Info(fmt.Sprint("fetched ", len(unmarshalled.Data), " proposals from the current state"))
+
+	for _, payload := range unmarshalled.Data {
+		var proposal proposalData
+		if err := c.unmarshalStatePayload(&proposal, string(payload)); err != nil {
+			c.logger.Error("get active proposals: failed to unmarshal the proposal payload: " + err.Error())
+			continue
+		}
+
+		if proposal.CurrentStatus != string(model.DocStatusActive) {
+			// return only active proposals
+			c.logger.Debug("get active proposals: found inactive proposal: ")
+			continue
+		}
+
+		m := convertToModelProposal(proposal)
+		proposals = append(proposals, m)
+
+	}
+
+	return proposals, nil
+}
+
+func convertToModelProposal(propData proposalData) model.Proposal {
+	return model.Proposal{
+		ProposalID:         propData.ProposalID,
+		DocumentName:       propData.DocName,
+		Category:           propData.Category,
+		ModificationAuthor: propData.Author,
+		Content:            []byte{},
+		ContentHash:        propData.ContentHash,
+		ProposedStatus:     propData.ProposedDocStatus,
+		CurrentStatus:      propData.CurrentStatus,
+		Signers:            propData.Signers,
+	}
+}
+
 // GetDocProposals fills in only proposal ID and content hash
 func (c Client) GetDocProposals(ctx context.Context, category string, documentName string) (proposals []model.Proposal, err error) {
 	payload, err := c.getDocState(ctx, category, documentName)
@@ -94,17 +152,7 @@ func (c Client) GetUserProposals(ctx context.Context, user string) (proposals []
 			continue
 		}
 
-		proposals = append(proposals, model.Proposal{
-			ProposalID:         id,
-			DocumentName:       propData.DocName,
-			Category:           propData.Category,
-			ModificationAuthor: propData.Author,
-			Content:            []byte{},
-			ContentHash:        propData.ContentHash,
-			ProposedStatus:     propData.ProposedDocStatus,
-			CurrentStatus:      propData.CurrentStatus,
-			Signers:            propData.Signers,
-		})
+		proposals = append(proposals, convertToModelProposal(propData))
 	}
 
 	if len(proposals) != len(userPropos.Active) {
