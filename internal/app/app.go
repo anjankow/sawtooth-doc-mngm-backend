@@ -53,7 +53,6 @@ func (a App) GetAllProposals(ctx context.Context, category string, userID string
 		} else {
 			propos, err = a.db.GetUserProposals(ctx, userID)
 		}
-
 	} else {
 		propos, err = a.db.GetCategoryProposals(ctx, category)
 	}

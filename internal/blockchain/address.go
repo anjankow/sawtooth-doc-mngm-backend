@@ -47,12 +47,16 @@ func getDocAddress(category string, docName string) (address string) {
 	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:52]
 }
 
-func getProposalAddress(proposal model.Proposal) (address string) {
+func getProposalAddressFromID(proposalID string) (address string) {
 	initHashVars()
 
-	proposalIDHash := hashing.CalculateFromStr(proposal.ProposalID)
+	proposalIDHash := hashing.CalculateFromStr(proposalID)
 
 	return familyHash[0:6] + proposalDataPrefixHash[0:6] + proposalIDHash[0:58]
+}
+
+func getProposalAddress(proposal model.Proposal) (address string) {
+	return getProposalAddressFromID(proposal.ProposalID)
 }
 
 func getUserAddress(user string) (address string) {

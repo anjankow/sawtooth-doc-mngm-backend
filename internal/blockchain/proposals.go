@@ -136,35 +136,14 @@ func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) err
 }
 
 // GetDocProposals fills in only proposal ID and content hash
-func (c Client) GetDocProposals(ctx context.Context, category string, documentName string) (docProposals []model.Proposal, err error) {
-	addr := getDocAddress(category, documentName)
-	url := fmt.Sprintf("%s/%s", stateAPI, addr)
-	response, err := c.sendRequest(ctx, url, nil, "")
+func (c Client) GetDocProposals(ctx context.Context, category string, documentName string) (proposals []model.Proposal, err error) {
+	payload, err := c.getDocState(ctx, category, documentName)
 	if err != nil {
-		return docProposals, err
+		return
 	}
-
-	var unmarshalled struct {
-		Data string
-	}
-	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
-		return docProposals, errors.New("failed to unmarshal doc state response: " + err.Error())
-	}
-	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data)
-	if err != nil {
-		return docProposals, errors.New("failed to decode doc state payload: " + err.Error())
-	}
-
-	var payload struct {
-		Proposals map[string]string `cbor:"proposals"`
-	}
-	if err := cbor.Unmarshal([]byte(decoded), &payload); err != nil {
-		return docProposals, errors.New("failed to unmarshal doc state payload: " + err.Error())
-	}
-	c.logger.Debug("unmarshalled payload", zap.Any("payload", payload))
 
 	for proposalID, contentHash := range payload.Proposals {
-		docProposals = append(docProposals, model.Proposal{
+		proposals = append(proposals, model.Proposal{
 			DocumentName: documentName,
 			Category:     category,
 			ProposalID:   proposalID,
@@ -172,7 +151,110 @@ func (c Client) GetDocProposals(ctx context.Context, category string, documentNa
 		})
 	}
 
-	return docProposals, nil
+	return proposals, nil
+}
+
+// GetUserProposals returns only active proposals created by the user
+func (c Client) GetUserProposals(ctx context.Context, user string) (proposals []model.Proposal, err error) {
+	userPropos, err := c.getUserState(ctx, user)
+	if err != nil {
+		return
+	}
+
+	// TODO: parallelize
+	for _, id := range userPropos.Active {
+		propData, err := c.getProposalState(ctx, id)
+		if err != nil {
+			c.logger.Error("getting user proposal error, skipping... error: "+err.Error(), zap.String("proposalID", id))
+			continue
+		}
+
+		proposals = append(proposals, model.Proposal{
+			ProposalID:         id,
+			DocumentName:       propData.DocName,
+			Category:           propData.Category,
+			ModificationAuthor: propData.Author,
+			Content:            []byte{},
+			ContentHash:        propData.ContentHash,
+			ProposedStatus:     propData.ProposedDocStatus,
+			CurrentStatus:      propData.CurrentStatus,
+			Signers:            propData.Signers,
+		})
+	}
+
+	if len(proposals) != len(userPropos.Active) {
+		c.logger.Warn(fmt.Sprint("returning ", len(proposals), "/", len(userPropos.Active), " proposals due to get proposal state errors"))
+	}
+
+	return proposals, nil
+}
+
+func (c Client) unmarshalStatePayload(out interface{}, response string) error {
+	var unmarshalled struct {
+		Data string
+	}
+	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
+		return errors.New("failed to unmarshal the response: " + err.Error())
+	}
+	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data)
+	if err != nil {
+		return errors.New("failed to decode the payload: " + err.Error())
+	}
+
+	if err := cbor.Unmarshal([]byte(decoded), out); err != nil {
+		return errors.New("failed to unmarshal the payload: " + err.Error())
+	}
+	c.logger.Debug("unmarshalled payload", zap.Any("payload", out))
+
+	return nil
+}
+
+func (c Client) getDocState(ctx context.Context, category string, docName string) (data docData, err error) {
+	addr := getDocAddress(category, docName)
+	url := fmt.Sprintf("%s/%s", stateAPI, addr)
+	response, err := c.sendRequest(ctx, url, nil, "")
+	if err != nil {
+		return data, err
+	}
+
+	var payload docData
+	if err := c.unmarshalStatePayload(&payload, response); err != nil {
+		return data, errors.New("get proposal state error: " + err.Error())
+	}
+
+	return payload, nil
+}
+
+func (c Client) getProposalState(ctx context.Context, proposalID string) (data proposalData, err error) {
+	addr := getProposalAddressFromID(proposalID)
+	url := fmt.Sprintf("%s/%s", stateAPI, addr)
+	response, err := c.sendRequest(ctx, url, nil, "")
+	if err != nil {
+		return data, err
+	}
+
+	var payload proposalData
+	if err := c.unmarshalStatePayload(&payload, response); err != nil {
+		return data, errors.New("get proposal state error: " + err.Error())
+	}
+
+	return payload, nil
+}
+
+func (c Client) getUserState(ctx context.Context, user string) (data userData, err error) {
+	addr := getUserAddress(user)
+	url := fmt.Sprintf("%s/%s", stateAPI, addr)
+	response, err := c.sendRequest(ctx, url, nil, "")
+	if err != nil {
+		return data, err
+	}
+
+	var payload userData
+	if err := c.unmarshalStatePayload(&payload, response); err != nil {
+		return data, errors.New("get user state error: " + err.Error())
+	}
+
+	return payload, nil
 }
 
 func (c Client) GetProposals(ctx context.Context, proposal model.Proposal) ([]model.Proposal, error) {
