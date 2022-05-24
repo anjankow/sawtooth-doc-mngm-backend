@@ -47,14 +47,11 @@ const (
 	proposalFamilyVersion  string = "1.0"
 	batchAPI               string = "batches"
 	batchStatusAPI         string = "batch_statuses"
-	transactionsAPI        string = "transactions"
 	stateAPI               string = "state"
 	contentTypeOctetStream string = "application/octet-stream"
 
 	wait uint = 10
 )
-
-var ErrInvalidContentHash = errors.New("content hash is invalid")
 
 func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
 	// TODO
@@ -230,102 +227,6 @@ func (c Client) getUserState(ctx context.Context, user string) (data userData, e
 	return payload, nil
 }
 
-func (c Client) GetProposals(ctx context.Context, proposal model.Proposal) ([]model.Proposal, error) {
-	url := fmt.Sprintf("%s/%s", stateAPI, getProposalAddress(proposal))
-	response, err := c.sendRequest(ctx, url, nil, "")
-	if err != nil {
-		return []model.Proposal{}, err
-	}
-
-	return c.readExistingProposals(response)
-}
-
-func (c Client) VerifyContentHash(ctx context.Context, proposal model.Proposal) error {
-	url := fmt.Sprintf("%s/%s", stateAPI, getProposalAddress(proposal))
-	response, err := c.sendRequest(ctx, url, nil, "")
-	if err != nil {
-		return err
-	}
-	contentHash, err := c.readContentHash(response)
-
-	if contentHash != proposal.ContentHash {
-		return ErrInvalidContentHash
-	}
-
-	return nil
-}
-
-func (c Client) readExistingProposals(response string) ([]model.Proposal, error) {
-	var proposals []model.Proposal
-	var unmarshalled struct {
-		Data string
-	}
-	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
-		return proposals, errors.New("failed to unmarshal /state GET response: " + err.Error())
-	}
-	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data)
-	if err != nil {
-		return proposals, errors.New("failed to decode /state GET payload: " + err.Error())
-	}
-
-	c.logger.Debug("decoded payload", zap.String("payload", string(decoded)))
-
-	var payload struct {
-		Category  string
-		DocName   string
-		Proposals []storedProposal `cbor:"proposals"`
-	}
-	if err := cbor.Unmarshal([]byte(decoded), &payload); err != nil {
-		return proposals, errors.New("failed to unmarshal /state GET payload: " + err.Error())
-	}
-	c.logger.Debug("unmarshalled payload", zap.Any("payload", payload))
-
-	proposals = make([]model.Proposal, len(payload.Proposals))
-	for i, existing := range payload.Proposals {
-		proposals[i] = model.Proposal{
-			DocumentName:       payload.DocName,
-			Category:           payload.Category,
-			ProposalID:         existing.ProposalID,
-			ModificationAuthor: existing.Author,
-			Content:            []byte{},
-			ContentHash:        existing.ContentHash,
-			ProposedStatus:     existing.ProposedDocStatus,
-		}
-	}
-
-	return proposals, nil
-}
-
-func (c Client) readContentHash(response string) (string, error) {
-	var unmarshalled struct {
-		Data struct {
-			Payload string
-		}
-	}
-	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
-		return "", errors.New("failed to unmarshal /transactions GET response: " + err.Error())
-	}
-	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data.Payload)
-	if err != nil {
-		return "", errors.New("failed to decode /transactions GET payload: " + err.Error())
-	}
-
-	c.logger.Debug("unmarshalled payload", zap.String("payload", string(decoded)))
-
-	var payload struct {
-		ContentHash string `cbor:"contentHash"`
-	}
-	if err := cbor.Unmarshal([]byte(decoded), &payload); err != nil {
-		return "", errors.New("failed to unmarshal /transactions GET payload: " + err.Error())
-	}
-
-	contentHash := payload.ContentHash
-	c.logger.Debug("unmarshalled content hash info", zap.String("contentHash", contentHash))
-
-	return contentHash, nil
-
-}
-
 func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
 
 	c.logger.Debug("submitting a proposal to address " + proposalTxn.proposalAddress)
@@ -366,17 +267,4 @@ func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (tr
 	c.logger.Info("getStatus response: " + response)
 	return proposalTxn.transaction.HeaderSignature, nil
 
-}
-
-type storedProposal struct {
-	_ struct{} `cbor:",toarray"`
-
-	ProposalID        string   `cbor:"proposalID"`
-	DocName           string   `cbor:"docName"`
-	Category          string   `cbor:"category"`
-	Author            string   `cbor:"author"`
-	Signers           []string `cbor:"signers"`
-	ProposedDocStatus string   `cbor:"proposedDocStatus"`
-	CurrentStatus     string   `cbor:"currentStatus"`
-	ContentHash       string   `cbor:"contentHash"`
 }
