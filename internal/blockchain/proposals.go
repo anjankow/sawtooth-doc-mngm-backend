@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"doc-management/internal/blockchain/proposalfamily"
 	propfamily "doc-management/internal/blockchain/proposalfamily"
 	"doc-management/internal/model"
 	"encoding/base64"
@@ -16,7 +17,6 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 )
 
 type action string
@@ -32,21 +32,39 @@ func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) err
 	return nil
 }
 
-func (c Client) SignProposal(ctx context.Context, proposalID string, userID string, signer *signing.Signer) error {
+func (c Client) SignProposal(ctx context.Context, proposalID string, userID string, signer *signing.Signer) (transactionID string, err error) {
 	proposalAddr := propfamily.GetProposalAddressFromID(proposalID)
-	userIDAddr := propfamily.GetUserAddress(userID)
+	userAddr := propfamily.GetUserAddress(userID)
 
 	payload := make(map[interface{}]interface{})
 	payload["action"] = actionVote
 	payload["proposalID"] = proposalID
 	payload["voter"] = userID
 
-	_, err := NewTransaction(payload, signer, []string{proposalAddr, userIDAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
+	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, userAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
 	if err != nil {
-		return err
+		return "", errors.New("failed to create a proposal sign transaction: " + err.Error())
 	}
 
-	return nil
+	// Get BatchList
+	batchId, batchList, err := createBatchList(
+		[]*transaction_pb2.Transaction{&transaction}, signer)
+
+	startTime := time.Now()
+	response, err := c.sendRequest(
+		ctx, batchAPI, batchList, contentTypeOctetStream)
+	if err != nil {
+		return "", err
+	}
+	status, err := c.getStatus(batchId, startTime)
+	if err != nil {
+		return "", err
+	}
+
+	c.logger.Info("request response: " + response)
+	c.logger.Info("request status: " + status)
+
+	return transaction.HeaderSignature, nil
 }
 
 // GetActiveProposals returns all active proposals
@@ -218,42 +236,43 @@ func (c Client) getUserState(ctx context.Context, user string) (data propfamily.
 	return payload, nil
 }
 
-func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
+func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, signer *signing.Signer) (transactionID string, err error) {
+
+	proposalDataAddress := proposalfamily.GetProposalAddress(proposal)
+	authorAddress := proposalfamily.GetUserAddress(proposal.ModificationAuthor)
+	docAddress := proposalfamily.GetDocAddress(proposal.Category, proposal.DocumentName)
+
+	payload := make(map[interface{}]interface{})
+	payload["action"] = actionInsert
+	payload["proposalID"] = proposal.ProposalID
+	payload["category"] = proposal.Category
+	payload["docName"] = proposal.DocumentName
+	payload["contentHash"] = proposal.ContentHash
+	payload["proposedStatus"] = proposal.ProposedStatus
+	payload["author"] = proposal.ModificationAuthor
+
+	transaction, err := NewTransaction(payload, signer, []string{proposalDataAddress, authorAddress, docAddress}, propfamily.FamilyName, propfamily.FamilyVersion)
+	if err != nil {
+		return "", errors.New("failed to create a new proposal transaction: " + err.Error())
+	}
 
 	// Get BatchList
-	rawBatchList, err := createBatchList(
-		[]*transaction_pb2.Transaction{&proposalTxn.transaction}, proposalTxn.signer)
-	if err != nil {
-		return "", errors.New(
-			fmt.Sprintf("unable to construct batch list: %v", err))
-	}
-	batchId := rawBatchList.Batches[0].HeaderSignature
-	batchList, err := proto.Marshal(&rawBatchList)
-	if err != nil {
-		return "", errors.New(
-			fmt.Sprintf("unable to serialize batch list: %v", err))
-	}
+	batchId, batchList, err := createBatchList(
+		[]*transaction_pb2.Transaction{&transaction}, signer)
 
-	waitTime := uint(0)
 	startTime := time.Now()
 	response, err := c.sendRequest(
 		ctx, batchAPI, batchList, contentTypeOctetStream)
 	if err != nil {
 		return "", err
 	}
-	for waitTime < wait {
-		status, err := c.getStatus(context.Background(), batchId, wait-waitTime)
-		if err != nil {
-			return "", err
-		}
-		waitTime = uint(time.Now().Sub(startTime))
-		if status != "PENDING" {
-			c.logger.Info("getStatus response: " + response)
-			return proposalTxn.transaction.HeaderSignature, nil
-		}
+	status, err := c.getStatus(batchId, startTime)
+	if err != nil {
+		return "", err
 	}
 
-	c.logger.Info("getStatus response: " + response)
-	return proposalTxn.transaction.HeaderSignature, nil
+	c.logger.Info("request response: " + response)
+	c.logger.Info("request status: " + status)
+	return transaction.HeaderSignature, nil
 
 }

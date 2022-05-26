@@ -45,7 +45,13 @@ func (a App) SignProposal(ctx context.Context, proposalID string, userID string)
 		return err
 	}
 
-	return a.blkchnClient.SignProposal(ctx, proposalID, userID, keys.GetSigner())
+	transactionID, err := a.blkchnClient.SignProposal(ctx, proposalID, userID, keys.GetSigner())
+	if err != nil {
+		return err
+	}
+
+	a.logger.Debug("proposal signed, transaction ID: " + transactionID)
+	return nil
 }
 
 func (a App) GetToSignProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
@@ -135,28 +141,23 @@ func (a App) AddProposal(ctx context.Context, proposal model.Proposal) error {
 		return err
 	}
 
-	// craete a new blockchain transaction to get the transaction ID == proposal ID
-	transaction, err := blockchain.NewProposalTransaction(proposal, keys.GetSigner())
-	if err != nil {
-		return err
-	}
-
 	a.logger.Info("submitting proposal", zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor), zap.String("proposalID", proposal.ProposalID))
 
 	// first insert the transaction to the DB
-	if err := a.db.InsertProposal(ctx, proposal, transaction.GetTransactionID()); err != nil {
+	if err := a.db.InsertProposal(ctx, proposal); err != nil {
 		return err
 	}
 
 	// submit to blockchain only if all the previous operations succeeded, as this action is irreversible
-	if _, err = a.blkchnClient.Submit(ctx, transaction); err != nil {
+	transactionID, err := a.blkchnClient.SubmitProposal(ctx, proposal, keys.GetSigner())
+	if err != nil {
 		// remove the doc from the database
 		a.logger.Debug("removing the proposal content from the database on error", zap.String("proposalID", proposal.ProposalID))
 		_ = a.db.RemoveProposal(context.Background(), proposal)
 		return err
 	}
 
-	a.logger.Info("proposal submitted, transaction ID: "+transaction.GetTransactionID(), zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor))
+	a.logger.Info("proposal submitted, transaction ID: "+transactionID, zap.String("docName", proposal.DocumentName), zap.String("author", proposal.ModificationAuthor))
 
 	return nil
 }

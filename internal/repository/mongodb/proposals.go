@@ -16,7 +16,7 @@ const (
 	proposalsCollection = "proposals"
 )
 
-func (b Repository) InsertProposal(ctx context.Context, proposal model.Proposal, proposalID string) error {
+func (b Repository) InsertProposal(ctx context.Context, proposal model.Proposal) error {
 
 	coll := b.client.Database(config.GetDatabaseName()).Collection(proposalsCollection)
 

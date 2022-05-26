@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
@@ -43,27 +44,6 @@ func NewClient(logger *zap.Logger, validatorRestAPIUrl string) *Client {
 	}
 
 	return &Client{logger: logger, url: url}
-}
-
-func (c Client) getStatus(ctx context.Context,
-	batchId string, wait uint) (string, error) {
-
-	// API to call
-	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d",
-		batchStatusAPI, batchId, wait)
-	response, err := c.sendRequest(ctx, apiSuffix, []byte{}, "")
-	if err != nil {
-		return "", err
-	}
-
-	responseMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(response), &responseMap)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))
-	}
-	entry :=
-		responseMap["data"].([]interface{})[0].(map[string]interface{})
-	return fmt.Sprint(entry["status"]), nil
 }
 
 func (c Client) sendRequest(
@@ -114,7 +94,7 @@ func (c Client) sendRequest(
 }
 
 func createBatchList(
-	transactions []*transaction_pb2.Transaction, signer *signing.Signer) (batch_pb2.BatchList, error) {
+	transactions []*transaction_pb2.Transaction, signer *signing.Signer) (batchId string, batchList []byte, err error) {
 
 	// Get list of TransactionHeader signatures
 	transactionSignatures := []string{}
@@ -130,8 +110,9 @@ func createBatchList(
 	}
 	batchHeader, err := proto.Marshal(&rawBatchHeader)
 	if err != nil {
-		return batch_pb2.BatchList{}, errors.New(
+		err = errors.New(
 			fmt.Sprintf("unable to serialize batch header: %v", err))
+		return
 	}
 
 	// Signature of BatchHeader
@@ -146,7 +127,57 @@ func createBatchList(
 	}
 
 	// Construct BatchList
-	return batch_pb2.BatchList{
+	rawBatchList := batch_pb2.BatchList{
 		Batches: []*batch_pb2.Batch{&batch},
-	}, nil
+	}
+
+	batchId = rawBatchList.Batches[0].HeaderSignature
+	batchList, err = proto.Marshal(&rawBatchList)
+	if err != nil {
+		err = errors.New(
+			fmt.Sprintf("unable to serialize batch list: %v", err))
+		return
+	}
+
+	return batchId, batchList, nil
+}
+
+func (c Client) getStatus(batchId string, startTime time.Time) (string, error) {
+
+	waitTime := uint(0)
+	statusPending := "PENDING"
+	for waitTime < wait {
+		status, err := c.getStatusRequest(context.Background(), batchId, wait-waitTime)
+		if err != nil {
+			return "", err
+		}
+		waitTime = uint(time.Now().Sub(startTime))
+		if status != statusPending {
+			return status, nil
+		}
+	}
+
+	return statusPending, nil
+
+}
+
+func (c Client) getStatusRequest(ctx context.Context,
+	batchId string, wait uint) (string, error) {
+
+	// API to call
+	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d",
+		batchStatusAPI, batchId, wait)
+	response, err := c.sendRequest(ctx, apiSuffix, []byte{}, "")
+	if err != nil {
+		return "", err
+	}
+
+	responseMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(response), &responseMap)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))
+	}
+	entry :=
+		responseMap["data"].([]interface{})[0].(map[string]interface{})
+	return fmt.Sprint(entry["status"]), nil
 }
