@@ -1,21 +1,3 @@
-/**
- * Copyright 2018 Intel Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ------------------------------------------------------------------------------
- */
-
-// based on https://github.com/hyperledger/sawtooth-sdk-go/blob/21f3d02d2446b6a91a945c93a8b94b1ddf616841/examples/intkey_go/src/sawtooth_intkey_client/intkey_client.go
 package blockchain
 
 import (
@@ -31,6 +13,7 @@ import (
 
 	"github.com/fxamacker/cbor"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
+	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
@@ -55,6 +38,23 @@ const (
 
 func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
 	// TODO
+	return nil
+}
+
+func (c Client) SignProposal(ctx context.Context, proposalID string, userID string, signer *signing.Signer) error {
+	proposalAddr := getProposalAddressFromID(proposalID)
+	userIDAddr := getUserAddress(userID)
+
+	payload := make(map[interface{}]interface{})
+	payload["action"] = actionVote
+	payload["proposalID"] = proposalID
+	payload["voter"] = userID
+
+	_, err := NewTransaction(payload, signer, []string{proposalAddr, userIDAddr})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

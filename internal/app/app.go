@@ -37,8 +37,15 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	}
 }
 
-func (a App) SignProposal(ctx context.Context, proposalID string, signer string) error {
-	return a.blkchnClient.SignProposal(ctx, proposalID, signer)
+// SignProposal user ID refers to a user who signs the proposal
+func (a App) SignProposal(ctx context.Context, proposalID string, userID string) error {
+	// TODO: use the user's keys obtained from the key manager
+	keys, err := a.keyManager.GenerateKeys()
+	if err != nil {
+		return err
+	}
+
+	return a.blkchnClient.SignProposal(ctx, proposalID, userID, keys.GetSigner())
 }
 
 func (a App) GetToSignProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
