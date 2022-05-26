@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	propfamily "doc-management/internal/blockchain/proposalfamily"
 	"doc-management/internal/model"
 	"encoding/base64"
 	"encoding/json"
@@ -26,31 +27,21 @@ const (
 	actionDelete action = "delete"
 )
 
-const (
-	proposalFamilyVersion  string = "1.0"
-	batchAPI               string = "batches"
-	batchStatusAPI         string = "batch_statuses"
-	stateAPI               string = "state"
-	contentTypeOctetStream string = "application/octet-stream"
-
-	wait uint = 10
-)
-
 func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
 	// TODO
 	return nil
 }
 
 func (c Client) SignProposal(ctx context.Context, proposalID string, userID string, signer *signing.Signer) error {
-	proposalAddr := getProposalAddressFromID(proposalID)
-	userIDAddr := getUserAddress(userID)
+	proposalAddr := propfamily.GetProposalAddressFromID(proposalID)
+	userIDAddr := propfamily.GetUserAddress(userID)
 
 	payload := make(map[interface{}]interface{})
 	payload["action"] = actionVote
 	payload["proposalID"] = proposalID
 	payload["voter"] = userID
 
-	_, err := NewTransaction(payload, signer, []string{proposalAddr, userIDAddr})
+	_, err := NewTransaction(payload, signer, []string{proposalAddr, userIDAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
 	if err != nil {
 		return err
 	}
@@ -61,7 +52,7 @@ func (c Client) SignProposal(ctx context.Context, proposalID string, userID stri
 // GetActiveProposals returns all active proposals
 func (c Client) GetActiveProposals(ctx context.Context) (proposals []model.Proposal, err error) {
 	// fetch all the proposals = pass only the part of address corresponding to proposals
-	addr := getProposalAddressFromID("")
+	addr := propfamily.GetProposalAddressFromID("")
 	filter := url.Values{}
 	filter.Set("address", addr)
 
@@ -81,7 +72,7 @@ func (c Client) GetActiveProposals(ctx context.Context) (proposals []model.Propo
 	c.logger.Info(fmt.Sprint("fetched ", len(unmarshalled.Data), " proposals from the current state"))
 
 	for _, payload := range unmarshalled.Data {
-		var proposal proposalData
+		var proposal propfamily.ProposalData
 		if err := c.unmarshalStatePayload(&proposal, string(payload)); err != nil {
 			c.logger.Error("get active proposals: failed to unmarshal the proposal payload: " + err.Error())
 			continue
@@ -101,7 +92,7 @@ func (c Client) GetActiveProposals(ctx context.Context) (proposals []model.Propo
 	return proposals, nil
 }
 
-func convertToModelProposal(propData proposalData) model.Proposal {
+func convertToModelProposal(propData propfamily.ProposalData) model.Proposal {
 	return model.Proposal{
 		ProposalID:         propData.ProposalID,
 		DocumentName:       propData.DocName,
@@ -179,15 +170,15 @@ func (c Client) unmarshalStatePayload(out interface{}, response string) error {
 	return nil
 }
 
-func (c Client) getDocState(ctx context.Context, category string, docName string) (data docData, err error) {
-	addr := getDocAddress(category, docName)
+func (c Client) getDocState(ctx context.Context, category string, docName string) (data propfamily.DocData, err error) {
+	addr := propfamily.GetDocAddress(category, docName)
 	url := fmt.Sprintf("%s/%s", stateAPI, addr)
 	response, err := c.sendRequest(ctx, url, nil, "")
 	if err != nil {
 		return data, err
 	}
 
-	var payload docData
+	var payload propfamily.DocData
 	if err := c.unmarshalStatePayload(&payload, response); err != nil {
 		return data, errors.New("get proposal state error: " + err.Error())
 	}
@@ -195,15 +186,15 @@ func (c Client) getDocState(ctx context.Context, category string, docName string
 	return payload, nil
 }
 
-func (c Client) getProposalState(ctx context.Context, proposalID string) (data proposalData, err error) {
-	addr := getProposalAddressFromID(proposalID)
+func (c Client) getProposalState(ctx context.Context, proposalID string) (data propfamily.ProposalData, err error) {
+	addr := propfamily.GetProposalAddressFromID(proposalID)
 	url := fmt.Sprintf("%s/%s", stateAPI, addr)
 	response, err := c.sendRequest(ctx, url, nil, "")
 	if err != nil {
 		return data, err
 	}
 
-	var payload proposalData
+	var payload propfamily.ProposalData
 	if err := c.unmarshalStatePayload(&payload, response); err != nil {
 		return data, errors.New("get proposal state error: " + err.Error())
 	}
@@ -211,15 +202,15 @@ func (c Client) getProposalState(ctx context.Context, proposalID string) (data p
 	return payload, nil
 }
 
-func (c Client) getUserState(ctx context.Context, user string) (data userData, err error) {
-	addr := getUserAddress(user)
+func (c Client) getUserState(ctx context.Context, user string) (data propfamily.UserData, err error) {
+	addr := propfamily.GetUserAddress(user)
 	url := fmt.Sprintf("%s/%s", stateAPI, addr)
 	response, err := c.sendRequest(ctx, url, nil, "")
 	if err != nil {
 		return data, err
 	}
 
-	var payload userData
+	var payload propfamily.UserData
 	if err := c.unmarshalStatePayload(&payload, response); err != nil {
 		return data, errors.New("get user state error: " + err.Error())
 	}
@@ -228,8 +219,6 @@ func (c Client) getUserState(ctx context.Context, user string) (data userData, e
 }
 
 func (c Client) Submit(ctx context.Context, proposalTxn ProposalTransaction) (transactionID string, err error) {
-
-	c.logger.Debug("submitting a proposal to address " + proposalTxn.proposalAddress)
 
 	// Get BatchList
 	rawBatchList, err := createBatchList(

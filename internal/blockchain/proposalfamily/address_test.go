@@ -1,4 +1,4 @@
-package blockchain
+package proposalfamily
 
 import (
 	"doc-management/internal/hashing"
@@ -22,8 +22,8 @@ func TestAddress(t *testing.T) {
 	expectedProposalAddr := `8ed94c5290e964cc4cc0674fbd42665971d649f83ded200beda9732a984eb6e5d69f6b`
 	expectedUserAddr := `8ed94cb143611f6fd9a184c21965ba642251f0792b10b000fbc9878b69179b1e7bcce9`
 
-	assert.Equal(t, expectedDocAddr, getDocAddress(proposal.Category, proposal.DocumentName))
-	assert.Equal(t, expectedProposalAddr, getProposalAddress(proposal))
-	assert.Equal(t, expectedUserAddr, getUserAddress(proposal.ModificationAuthor))
+	assert.Equal(t, expectedDocAddr, GetDocAddress(proposal.Category, proposal.DocumentName))
+	assert.Equal(t, expectedProposalAddr, GetProposalAddress(proposal))
+	assert.Equal(t, expectedUserAddr, GetUserAddress(proposal.ModificationAuthor))
 
 }

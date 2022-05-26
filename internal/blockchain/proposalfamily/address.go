@@ -1,4 +1,4 @@
-package blockchain
+package proposalfamily
 
 import (
 	"doc-management/internal/hashing"
@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	proposalFamily string = "proposals"
+	FamilyName    string = "proposals"
+	FamilyVersion string = "1.0"
 
 	// to hold all proposal related data
 	proposalDataPrefix = "proposaldata"
@@ -30,7 +31,7 @@ var (
 // hashing lib needs to be initialized first
 func initHashVars() {
 	calcOnce.Do(func() {
-		familyHash = hashing.CalculateFromStr(proposalFamily)
+		familyHash = hashing.CalculateFromStr(FamilyName)
 		proposalDataPrefixHash = hashing.CalculateFromStr(proposalDataPrefix)
 		userPrefixHash = hashing.CalculateFromStr(userPrefix)
 		docPrefixHash = hashing.CalculateFromStr(docPrefix)
@@ -38,7 +39,7 @@ func initHashVars() {
 	})
 }
 
-func getDocAddress(category string, docName string) (address string) {
+func GetDocAddress(category string, docName string) (address string) {
 	initHashVars()
 
 	categoryHash := hashing.CalculateFromStr(category)
@@ -47,9 +48,9 @@ func getDocAddress(category string, docName string) (address string) {
 	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:52]
 }
 
-// getProposalAddressFromID calculates the proposal address; if the proposal ID is empty,
+// GetProposalAddressFromID calculates the proposal address; if the proposal ID is empty,
 // it returns the address of all the proposals
-func getProposalAddressFromID(proposalID string) (address string) {
+func GetProposalAddressFromID(proposalID string) (address string) {
 	initHashVars()
 
 	address = familyHash[0:6] + proposalDataPrefixHash[0:6]
@@ -62,11 +63,11 @@ func getProposalAddressFromID(proposalID string) (address string) {
 	return address
 }
 
-func getProposalAddress(proposal model.Proposal) (address string) {
-	return getProposalAddressFromID(proposal.ProposalID)
+func GetProposalAddress(proposal model.Proposal) (address string) {
+	return GetProposalAddressFromID(proposal.ProposalID)
 }
 
-func getUserAddress(user string) (address string) {
+func GetUserAddress(user string) (address string) {
 	initHashVars()
 
 	userHash := hashing.CalculateFromStr(user)

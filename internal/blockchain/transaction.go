@@ -33,7 +33,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func NewTransaction(payload map[interface{}]interface{}, signer *signing.Signer, addresses []string) (transaction_pb2.Transaction, error) {
+func NewTransaction(payload map[interface{}]interface{}, signer *signing.Signer, addresses []string, familyName, familyVersion string) (transaction_pb2.Transaction, error) {
 
 	payloadDump, err := cbor.Marshal(payload, cbor.CanonicalEncOptions())
 	if err != nil {
@@ -43,8 +43,8 @@ func NewTransaction(payload map[interface{}]interface{}, signer *signing.Signer,
 	// Construct TransactionHeader
 	rawTransactionHeader := transaction_pb2.TransactionHeader{
 		SignerPublicKey:  signer.GetPublicKey().AsHex(),
-		FamilyName:       proposalFamily,
-		FamilyVersion:    proposalFamilyVersion,
+		FamilyName:       familyName,
+		FamilyVersion:    familyVersion,
 		Nonce:            strconv.Itoa(rand.Int()),
 		BatcherPublicKey: signer.GetPublicKey().AsHex(),
 		Inputs:           addresses,

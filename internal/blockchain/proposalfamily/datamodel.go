@@ -1,12 +1,12 @@
-package blockchain
+package proposalfamily
 
-type userData struct {
+type UserData struct {
 	Signed   []string `cbor:"signed"`
 	Accepted []string `cbor:"accepted"`
 	Active   []string `cbor:"active"`
 }
 
-type proposalData struct {
+type ProposalData struct {
 	// _ struct{} `cbor:",toarray"`
 
 	ProposalID        string   `cbor:"proposalID"`
@@ -19,6 +19,6 @@ type proposalData struct {
 	ContentHash       string   `cbor:"contentHash"`
 }
 
-type docData struct {
+type DocData struct {
 	Proposals map[string]string `cbor:"proposals"`
 }

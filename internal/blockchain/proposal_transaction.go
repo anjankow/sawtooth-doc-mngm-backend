@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"doc-management/internal/blockchain/proposalfamily"
 	"doc-management/internal/hashing"
 	"doc-management/internal/model"
 	"encoding/hex"
@@ -31,9 +32,9 @@ func (t ProposalTransaction) GetProposalAddress() string {
 
 func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (ProposalTransaction, error) {
 
-	proposalDataAddress := getProposalAddress(proposal)
-	authorAddress := getUserAddress(proposal.ModificationAuthor)
-	docAddress := getDocAddress(proposal.Category, proposal.DocumentName)
+	proposalDataAddress := proposalfamily.GetProposalAddress(proposal)
+	authorAddress := proposalfamily.GetUserAddress(proposal.ModificationAuthor)
+	docAddress := proposalfamily.GetDocAddress(proposal.Category, proposal.DocumentName)
 
 	payload := make(map[interface{}]interface{})
 	payload["action"] = actionInsert
@@ -52,8 +53,8 @@ func NewProposalTransaction(proposal model.Proposal, signer *signing.Signer) (Pr
 	// Construct TransactionHeader
 	rawTransactionHeader := transaction_pb2.TransactionHeader{
 		SignerPublicKey:  signer.GetPublicKey().AsHex(),
-		FamilyName:       proposalFamily,
-		FamilyVersion:    proposalFamilyVersion,
+		FamilyName:       proposalfamily.FamilyName,
+		FamilyVersion:    proposalfamily.FamilyVersion,
 		Nonce:            strconv.Itoa(rand.Int()),
 		BatcherPublicKey: signer.GetPublicKey().AsHex(),
 		Inputs:           []string{proposalDataAddress, authorAddress, docAddress},

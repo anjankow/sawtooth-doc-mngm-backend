@@ -22,6 +22,15 @@ var (
 	ErrNotFound = errors.New("responded with status 404")
 )
 
+const (
+	batchAPI               string = "batches"
+	batchStatusAPI         string = "batch_statuses"
+	stateAPI               string = "state"
+	contentTypeOctetStream string = "application/octet-stream"
+
+	wait uint = 10
+)
+
 type Client struct {
 	logger *zap.Logger
 	url    string
