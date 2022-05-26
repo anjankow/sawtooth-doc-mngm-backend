@@ -29,7 +29,21 @@ type retrivedProposal struct {
 	Signers    []string `json:"signers"`
 }
 
-func (ser server) getDocProposals(w http.ResponseWriter, r *http.Request) {
+func (ser server) signProposal(w http.ResponseWriter, r *http.Request) {
+
+	proposalID, signer, err := ser.readSignProposalParams(r)
+	if err != nil {
+		ser.badRequest(w, err.Error())
+		return
+	}
+
+	if err := ser.app.SignProposal(r.Context(), proposalID, signer); err != nil {
+		ser.serverError(w, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
 }
 
 func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +104,7 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 
 func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 
-	proposal, err := ser.readProposalParams(r)
+	proposal, err := ser.readAddProposalParams(r)
 	if err != nil {
 		ser.badRequest(w, err.Error())
 		return
@@ -100,7 +114,7 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), config.GetRequestTimeout())
 	defer cancel()
 
-	if err := ser.app.SaveProposal(ctx, proposal); err != nil {
+	if err := ser.app.AddProposal(ctx, proposal); err != nil {
 		ser.serverError(w, "saving the proposal failed: "+err.Error())
 		return
 	}
@@ -108,7 +122,7 @@ func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
+func (ser server) readAddProposalParams(r *http.Request) (model.Proposal, error) {
 	// max file size is 10MB
 	if err := r.ParseMultipartForm(10e7); err != nil {
 		return model.Proposal{}, errors.New("failed to parse the form: " + err.Error())
@@ -158,4 +172,31 @@ func (ser server) readProposalParams(r *http.Request) (model.Proposal, error) {
 		Content:            bytes,
 		ProposedStatus:     docStatus,
 	}, nil
+}
+
+func (ser server) readSignProposalParams(r *http.Request) (proposalID, signer string, err error) {
+	params := mux.Vars(r)
+
+	proposalID = normalize(params["proposalID"])
+	if proposalID == "" {
+		err = multierr.Append(err, errors.New("proposalID is missing"))
+	}
+
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		err = errors.New("can't read the request body: " + err.Error())
+		return
+	}
+
+	var body struct {
+		Signer string `json:"signer"`
+	}
+
+	if err = json.Unmarshal(bodyBytes, &body); err != nil {
+		err = errors.New("invalid body: " + err.Error())
+		return
+	}
+
+	return proposalID, body.Signer, nil
 }

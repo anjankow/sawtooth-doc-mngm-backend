@@ -32,11 +32,12 @@ func (ser server) registerHandlers(router *mux.Router) {
 	router.HandleFunc("/health", healthcheck)
 
 	router.HandleFunc("/api/proposals/{docName}", ser.putProposal).Methods(http.MethodPut)
+	router.HandleFunc("/api/proposals/{proposalID}", ser.signProposal).Methods(http.MethodPost)
 
 	// for getting all proposals filtered by a certain category or author
 	router.HandleFunc("/api/proposals", ser.getAllProposals).Methods(http.MethodGet)
-	// for getting all proposals existing for a certain document
-	router.HandleFunc("/api/proposals/{docName}", ser.getDocProposals).Methods(http.MethodGet)
+	// // for getting all proposals existing for a certain document
+	// router.HandleFunc("/api/proposals/{docName}", ser.getDocProposals).Methods(http.MethodGet)
 
 	// // for getting all docs by certain author, signed by a certain user
 	// router.HandleFunc("/api/docs").Methods(http.MethodGet)

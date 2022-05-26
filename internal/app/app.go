@@ -37,6 +37,10 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	}
 }
 
+func (a App) SignProposal(ctx context.Context, proposalID string, signer string) error {
+	return a.blkchnClient.SignProposal(ctx, proposalID, signer)
+}
+
 func (a App) GetToSignProposals(ctx context.Context, userID string) (propos []model.Proposal, err error) {
 	propos, err = a.blkchnClient.GetActiveProposals(ctx)
 	if err != nil {
@@ -96,7 +100,7 @@ func (a App) GetUserProposals(ctx context.Context, userID string) (propos []mode
 	return a.fillAndVerifyContent(ctx, propos)
 }
 
-func (a App) SaveProposal(ctx context.Context, proposal model.Proposal) error {
+func (a App) AddProposal(ctx context.Context, proposal model.Proposal) error {
 
 	// fill in the missing fields with defaults and validate
 	proposal.Complete()
