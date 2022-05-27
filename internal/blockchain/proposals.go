@@ -32,16 +32,34 @@ func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) err
 	return nil
 }
 
+func (c Client) getAddrByProposalID(ctx context.Context, proposalID string) (docAddr string, authorAddr string, err error) {
+	prop, err := c.getProposalState(ctx, proposalID)
+	if err != nil {
+		return "", "", err
+	}
+
+	docAddr = propfamily.GetDocAddress(prop.Category, prop.DocName)
+	authorAddr = propfamily.GetUserAddress(prop.Author)
+
+	c.logger.Debug("received proposal info: " + prop.Category + ", " + prop.DocName + ", address: " + docAddr)
+	return
+}
+
 func (c Client) SignProposal(ctx context.Context, proposalID string, userID string, signer *signing.Signer) (transactionID string, err error) {
 	proposalAddr := propfamily.GetProposalAddressFromID(proposalID)
-	userAddr := propfamily.GetUserAddress(userID)
+	voterAddr := propfamily.GetUserAddress(userID)
+
+	docAddr, authorAddr, err := c.getAddrByProposalID(ctx, proposalID)
+	if err != nil {
+		c.logger.Warn("failed to get the doc addr from proposal ID by getting the state: " + err.Error())
+	}
 
 	payload := make(map[interface{}]interface{})
 	payload["action"] = actionVote
 	payload["proposalID"] = proposalID
 	payload["voter"] = userID
 
-	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, userAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
+	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, voterAddr, authorAddr, docAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
 	if err != nil {
 		return "", errors.New("failed to create a proposal sign transaction: " + err.Error())
 	}

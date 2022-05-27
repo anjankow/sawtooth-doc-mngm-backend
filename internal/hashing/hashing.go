@@ -1,6 +1,7 @@
 package hashing
 
 import (
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 
@@ -36,4 +37,12 @@ func Calculate(data []byte) string {
 
 func CalculateFromStr(data string) string {
 	return Calculate([]byte(data))
+}
+
+func CalculateSHA256(data string) string {
+	hash := sha256.New()
+	_, _ = hash.Write([]byte(data))
+	h := hash.Sum(nil)
+
+	return hex.EncodeToString(h)
 }
