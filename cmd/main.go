@@ -31,6 +31,9 @@ func main() {
 	defer db.Disconnect()
 
 	app := app.NewApp(logger, db)
+	if err := app.Start(); err != nil {
+		logger.Fatal("failed to start the app: " + err.Error())
+	}
 	ser := http.NewServer(logger, &app, ":8077")
 	if err := ser.Run(); err != nil {
 		logger.Fatal("failed to run the server: " + err.Error())

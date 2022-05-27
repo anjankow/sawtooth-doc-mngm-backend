@@ -4,6 +4,7 @@ package events
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/hyperledger/sawtooth-sdk-go/messaging"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/client_event_pb2"
@@ -16,11 +17,13 @@ import (
 )
 
 type EventListener struct {
-	log          *zap.Logger
-	connection   messaging.Connection
-	validatorUrl string
-	closerFunc   []func() error
-	handlers     map[string](func(data []byte) error)
+	log           *zap.Logger
+	connection    messaging.Connection
+	validatorUrl  string
+	closerFunc    []func() error
+	handlers      map[string](func(data []byte) error)
+	stopListening chan bool
+	wg            *sync.WaitGroup
 }
 
 func NewEventListener(logger *zap.Logger, validatorHostname string) *EventListener {
@@ -28,6 +31,8 @@ func NewEventListener(logger *zap.Logger, validatorHostname string) *EventListen
 	return &EventListener{
 		log:          logger,
 		validatorUrl: validatorUrl,
+		handlers:     make(map[string]func(data []byte) error),
+		wg:           &sync.WaitGroup{},
 	}
 }
 
@@ -48,10 +53,14 @@ func (e *EventListener) Start() error {
 	}
 	e.connection = zmqConnection
 
+	e.stopListening = make(chan bool)
+	go e.listenLoop(e.stopListening)
+
 	return nil
 }
 
 func (e EventListener) Stop() error {
+	e.stopListening <- true
 	var allErr error
 	for _, close := range e.closerFunc {
 		if err := close(); err != nil {
@@ -59,36 +68,55 @@ func (e EventListener) Stop() error {
 		}
 	}
 	e.connection.Close()
+	e.log.Info("waiting for all the event handlers to finish...")
+	e.wg.Wait()
+	e.log.Info("event listener handlers finished")
 
 	return allErr
 }
 
-func (e EventListener) listenLoop() error {
-	e.log.Info("start listening for incoming blockchain events")
+func (e *EventListener) listenLoop(stop chan bool) error {
+	e.log.Info("start listening on blockchain events")
+
 	for {
-		// Wait for a message on connection
-		_, message, err := e.connection.RecvMsg()
-		if err != nil {
-			return err
-		}
-		// Check if received is a client event message
-		if message.MessageType !=
-			validator_pb2.Message_CLIENT_EVENTS {
-			return errors.New("Received a message not requested for")
-		}
-		event_list := events_pb2.EventList{}
-		err = proto.Unmarshal(message.Content, &event_list)
-		if err != nil {
-			return err
-		}
-		// Received following events from validator
-		for _, event := range event_list.Events {
-			// handle event here
-			e.log.Info("event received: " + event.EventType)
-			switch event.EventType {
-			case "proposal_accepted":
-			default:
-				e.log.Warn("handler missing for the event: " + event.EventType)
+		select {
+		case <-stop:
+			return nil
+		default:
+
+			// Wait for a message on connection
+			_, message, err := e.connection.RecvMsg()
+			if err != nil {
+				return err
+			}
+			// Check if received is a client event message
+			if message.MessageType !=
+				validator_pb2.Message_CLIENT_EVENTS {
+				return errors.New("Received a message not requested for")
+			}
+			event_list := events_pb2.EventList{}
+			err = proto.Unmarshal(message.Content, &event_list)
+			if err != nil {
+				return err
+			}
+			// Received following events from validator
+			for _, event := range event_list.Events {
+				// handle event here
+				e.log.Info("event received: " + event.EventType)
+
+				handler, ok := e.handlers[event.EventType]
+				if !ok {
+					e.log.Warn("handler missing for the event: " + event.EventType)
+				}
+
+				e.wg.Add(1)
+				go func(event *events_pb2.Event) {
+					defer e.wg.Done()
+
+					if err := handler(event.GetData()); err != nil {
+						e.log.Error("error when handling the event: " + err.Error())
+					}
+				}(event)
 			}
 		}
 	}
@@ -125,12 +153,14 @@ func (e *EventListener) subscribeToEvent(eventType string) (err error) {
 	if err != nil {
 		return
 	}
+	e.log.Debug("waiting for receiving the subscription confirmation...")
 	// Wait for subscription status, wait for response of
 	// message with specific correlation id
 	_, response, err := e.connection.RecvMsgWithId(corrId)
 	if err != nil {
 		return
 	}
+
 	// Deserialize received protobuf message as response
 	// for subscription request
 	subsResponse :=

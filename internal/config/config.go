@@ -21,7 +21,7 @@ var (
 )
 
 func GetValidatorHostname() string {
-	return "validator"
+	return "localhost"
 }
 
 func GetValidatorRestApiAddr() string {
