@@ -49,7 +49,7 @@ func NewTransaction(payload map[interface{}]interface{}, signer *signing.Signer,
 		BatcherPublicKey: signer.GetPublicKey().AsHex(),
 		Inputs:           addresses,
 		Outputs:          addresses,
-		PayloadSha512:    hashing.Calculate(payloadDump),
+		PayloadSha512:    hashing.CalculateSHA512(string(payloadDump)),
 	}
 
 	transactionHeader, err := proto.Marshal(&rawTransactionHeader)

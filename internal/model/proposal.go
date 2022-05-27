@@ -39,5 +39,5 @@ func (proposal *Proposal) Complete() {
 	if proposal.ProposedStatus == "" {
 		proposal.ProposedStatus = string(DocStatusActive)
 	}
-	proposal.ContentHash = hashing.Calculate(proposal.Content)
+	proposal.ContentHash = hashing.CalculateSHA512(string(proposal.Content))
 }

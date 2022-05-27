@@ -96,7 +96,7 @@ func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]model.Pr
 	var modelPropos = make([]model.Proposal, len(storedPropos))
 	for i, stored := range storedPropos {
 		// content hash is always recalculated everytime the data is retrieved
-		contentHash := hashing.Calculate(stored.Content)
+		contentHash := hashing.CalculateSHA512(string(stored.Content))
 
 		modelPropos[i] = model.Proposal{
 			ProposalID: stored.ProposalID,

@@ -12,37 +12,35 @@ import (
 
 type hashWrapper struct {
 	logger *zap.Logger
-	hash   hash.Hash
+	sha256 hash.Hash
+	sha512 hash.Hash
 }
 
 var hashInstance hashWrapper
 
 func Initialize(logger *zap.Logger) {
-	hashInstance.hash = sha512.New()
+	hashInstance.sha512 = sha512.New()
+	hashInstance.sha256 = sha256.New()
 	hashInstance.logger = logger
 }
 
-func Calculate(data []byte) string {
-	hashInstance.hash.Reset()
+func CalculateSHA512(data string) string {
+	hashInstance.sha512.Reset()
 
-	if _, err := hashInstance.hash.Write(data); err != nil {
+	if _, err := hashInstance.sha512.Write([]byte(data)); err != nil {
 		hashInstance.logger.Error("failed to initialize hash function: " + err.Error())
 		return ""
 	}
 
-	h := hashInstance.hash.Sum(nil)
+	h := hashInstance.sha512.Sum(nil)
 
 	return hex.EncodeToString(h)
 }
 
-func CalculateFromStr(data string) string {
-	return Calculate([]byte(data))
-}
-
 func CalculateSHA256(data string) string {
-	hash := sha256.New()
-	_, _ = hash.Write([]byte(data))
-	h := hash.Sum(nil)
+	hashInstance.sha256.Reset()
+	_, _ = hashInstance.sha256.Write([]byte(data))
+	h := hashInstance.sha256.Sum(nil)
 
 	return hex.EncodeToString(h)
 }
