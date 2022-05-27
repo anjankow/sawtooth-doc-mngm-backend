@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/events_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/validator_pb2"
 	"github.com/pebbe/zmq4"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
@@ -19,17 +20,18 @@ type EventListener struct {
 	connection   messaging.Connection
 	validatorUrl string
 	closerFunc   []func() error
+	handlers     map[string](func(data []byte) error)
 }
 
-func NewEventListener(logger *zap.Logger, validatorHostname string) EventListener {
+func NewEventListener(logger *zap.Logger, validatorHostname string) *EventListener {
 	validatorUrl := fmt.Sprint("tcp://", validatorHostname, ":4004")
-	return EventListener{
+	return &EventListener{
 		log:          logger,
 		validatorUrl: validatorUrl,
 	}
 }
 
-func (e EventListener) Start() error {
+func (e *EventListener) Start() error {
 	zmqContext, err := zmq4.NewContext()
 	if err != nil {
 		return err
@@ -46,21 +48,23 @@ func (e EventListener) Start() error {
 	}
 	e.connection = zmqConnection
 
-	e.subscribeToEvent("proposal_accepted")
-
 	return nil
 }
 
-func (e EventListener) Stop() {
+func (e EventListener) Stop() error {
+	var allErr error
 	for _, close := range e.closerFunc {
 		if err := close(); err != nil {
-			e.log.Error("event listener closer failed: " + err.Error())
+			allErr = multierr.Append(allErr, err)
 		}
 	}
 	e.connection.Close()
+
+	return allErr
 }
 
 func (e EventListener) listenLoop() error {
+	e.log.Info("start listening for incoming blockchain events")
 	for {
 		// Wait for a message on connection
 		_, message, err := e.connection.RecvMsg()
@@ -90,7 +94,12 @@ func (e EventListener) listenLoop() error {
 	}
 }
 
-func (e EventListener) subscribeToEvent(eventType string) (err error) {
+func (e *EventListener) SetHandler(eventType string, handler func(data []byte) error) error {
+	e.handlers[eventType] = handler
+	return e.subscribeToEvent(eventType)
+}
+
+func (e *EventListener) subscribeToEvent(eventType string) (err error) {
 
 	subs := events_pb2.EventSubscription{
 		EventType: eventType,
@@ -184,6 +193,7 @@ func (e EventListener) subscribeToEvent(eventType string) (err error) {
 	}
 
 	e.closerFunc = append(e.closerFunc, unsubscribe)
+	e.log.Info("successfully subscribed to event '" + eventType + "'")
 
 	return nil
 }

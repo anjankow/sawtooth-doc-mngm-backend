@@ -20,6 +20,10 @@ var (
 	dbName        string
 )
 
+func GetValidatorHostname() string {
+	return "validator"
+}
+
 func GetValidatorRestApiAddr() string {
 	return "http://localhost:8008"
 }

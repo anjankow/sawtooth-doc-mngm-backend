@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"doc-management/internal/blockchain"
+	"doc-management/internal/blockchain/events"
 	"doc-management/internal/config"
 	"doc-management/internal/hashing"
 	"doc-management/internal/keymanager"
@@ -26,15 +27,39 @@ type App struct {
 	keyManager   keymanager.KeyManager
 	logger       *zap.Logger
 	db           mongodb.Repository
+	listener     *events.EventListener
 }
 
 func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	return App{
 		blkchnClient: blockchain.NewClient(logger, config.GetValidatorRestApiAddr()),
+		listener:     events.NewEventListener(logger, config.GetValidatorHostname()),
 		keyManager:   keymanager.NewKeyManager(logger),
 		logger:       logger,
 		db:           db,
 	}
+}
+
+func (a App) Start() error {
+	if err := a.listener.Start(); err != nil {
+		return errors.New("failed to start the listener: " + err.Error())
+	}
+	if err := a.listener.SetHandler("proposal_accepted", a.handleProposalAccepted); err != nil {
+		return errors.New("failed to set the handler for 'proposal_accepted' event: " + err.Error())
+	}
+
+	return nil
+}
+
+func (a App) Stop() {
+	if err := a.listener.Stop(); err != nil {
+		a.logger.Warn("error when stopping the listener: " + err.Error())
+	}
+}
+
+func (a App) handleProposalAccepted(data []byte) error {
+	a.logger.Info("received proposal accepted: " + string(data))
+	return nil
 }
 
 // SignProposal user ID refers to a user who signs the proposal
@@ -81,7 +106,7 @@ func (a App) fillAndVerifyContent(ctx context.Context, propos []model.Proposal) 
 			continue
 		}
 
-		dbContentHash := hashing.Calculate(pWithContent.Content)
+		dbContentHash := hashing.CalculateSHA512(string(pWithContent.Content))
 		if dbContentHash != p.ContentHash {
 			a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", p.ProposalID), zap.String("dbHash", dbContentHash), zap.String("expectedHash", p.ContentHash))
 
