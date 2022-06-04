@@ -7,6 +7,7 @@ import (
 
 	"doc-management/internal/blockchain/proposalfamily"
 	propfamily "doc-management/internal/blockchain/proposalfamily"
+	"doc-management/internal/blockchain/settingsfamily"
 	"doc-management/internal/model"
 	"encoding/base64"
 	"encoding/json"
@@ -48,6 +49,7 @@ func (c Client) getAddrByProposalID(ctx context.Context, proposalID string) (doc
 func (c Client) SignProposal(ctx context.Context, proposalID string, userID string, signer *signing.Signer) (transactionID string, err error) {
 	proposalAddr := propfamily.GetProposalAddressFromID(proposalID)
 	voterAddr := propfamily.GetUserAddress(userID)
+	settingAddr := settingsfamily.GetAddress("proposal.vote.threshold")
 
 	docAddr, authorAddr, err := c.getAddrByProposalID(ctx, proposalID)
 	if err != nil {
@@ -59,7 +61,7 @@ func (c Client) SignProposal(ctx context.Context, proposalID string, userID stri
 	payload["proposalID"] = proposalID
 	payload["voter"] = userID
 
-	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, voterAddr, authorAddr, docAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
+	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, voterAddr, authorAddr, docAddr, settingAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
 	if err != nil {
 		return "", errors.New("failed to create a proposal sign transaction: " + err.Error())
 	}
@@ -116,7 +118,7 @@ func (c Client) GetActiveProposals(ctx context.Context) (proposals []model.Propo
 
 		if proposal.CurrentStatus != string(model.DocStatusActive) {
 			// return only active proposals
-			c.logger.Debug("get active proposals: found inactive proposal: ")
+			// c.logger.Debug("get active proposals: found inactive proposal: " + proposal.ProposalID)
 			continue
 		}
 
@@ -201,7 +203,6 @@ func (c Client) unmarshalStatePayload(out interface{}, response string) error {
 	if err := cbor.Unmarshal([]byte(decoded), out); err != nil {
 		return errors.New("failed to unmarshal the payload: " + err.Error())
 	}
-	c.logger.Debug("unmarshalled payload", zap.Any("payload", out))
 
 	return nil
 }
