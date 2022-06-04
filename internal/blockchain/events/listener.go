@@ -53,6 +53,12 @@ func (e *EventListener) Start() error {
 	}
 	e.connection = zmqConnection
 
+	for eventType, _ := range e.handlers {
+		if err := e.subscribeToEvent(eventType); err != nil {
+			e.log.Error("error when subscribing to event " + eventType + ": " + err.Error())
+		}
+	}
+
 	e.stopListening = make(chan bool)
 	go e.listenLoop(e.stopListening)
 
@@ -124,7 +130,7 @@ func (e *EventListener) listenLoop(stop chan bool) error {
 
 func (e *EventListener) SetHandler(eventType string, handler func(data []byte) error) error {
 	e.handlers[eventType] = handler
-	return e.subscribeToEvent(eventType)
+	return nil
 }
 
 func (e *EventListener) subscribeToEvent(eventType string) (err error) {

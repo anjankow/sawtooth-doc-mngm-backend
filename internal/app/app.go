@@ -41,11 +41,12 @@ func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 }
 
 func (a App) Start() error {
-	if err := a.listener.Start(); err != nil {
-		return errors.New("failed to start the listener: " + err.Error())
-	}
 	if err := a.listener.SetHandler("proposal_accepted", a.handleProposalAccepted); err != nil {
 		return errors.New("failed to set the handler for 'proposal_accepted' event: " + err.Error())
+	}
+
+	if err := a.listener.Start(); err != nil {
+		return errors.New("failed to start the listener: " + err.Error())
 	}
 
 	return nil
