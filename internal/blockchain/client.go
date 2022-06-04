@@ -85,7 +85,6 @@ func (c Client) sendRequest(
 	}
 	defer response.Body.Close()
 
-	c.logger.Debug("reading the response body")
 	reponseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))

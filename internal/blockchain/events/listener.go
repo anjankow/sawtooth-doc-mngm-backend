@@ -95,15 +95,17 @@ func (e *EventListener) listenLoop(stop chan bool) error {
 			if err != nil {
 				return err
 			}
+
 			// Check if received is a client event message
 			if message.MessageType !=
 				validator_pb2.Message_CLIENT_EVENTS {
-				return errors.New("Received a message not requested for")
+				continue
 			}
+
 			event_list := events_pb2.EventList{}
-			err = proto.Unmarshal(message.Content, &event_list)
-			if err != nil {
-				return err
+			if err := proto.Unmarshal(message.Content, &event_list); err != nil {
+				e.log.Error("failed to unmarshal proto message: " + err.Error())
+				continue
 			}
 			// Received following events from validator
 			for _, event := range event_list.Events {
@@ -113,6 +115,7 @@ func (e *EventListener) listenLoop(stop chan bool) error {
 				handler, ok := e.handlers[event.EventType]
 				if !ok {
 					e.log.Warn("handler missing for the event: " + event.EventType)
+					continue
 				}
 
 				e.wg.Add(1)
