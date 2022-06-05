@@ -46,6 +46,26 @@ func NewClient(logger *zap.Logger, validatorRestAPIUrl string) *Client {
 	return &Client{logger: logger, url: url}
 }
 
+func (c Client) submitTransaction(ctx context.Context, transaction transaction_pb2.Transaction, signer *signing.Signer) (string, error) {
+
+	batchId, batchList, err := createBatchList(
+		[]*transaction_pb2.Transaction{&transaction}, signer)
+
+	startTime := time.Now()
+	response, err := c.sendRequest(
+		ctx, batchAPI, batchList, contentTypeOctetStream)
+	if err != nil {
+		return "", err
+	}
+	status, err := c.getStatus(batchId, startTime)
+	if err != nil {
+		return "", err
+	}
+
+	c.logger.Info("request response: " + response + ", status: " + status)
+	return transaction.HeaderSignature, nil
+}
+
 func (c Client) sendRequest(
 	ctx context.Context,
 	apiSuffix string,

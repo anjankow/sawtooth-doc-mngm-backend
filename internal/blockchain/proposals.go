@@ -3,7 +3,6 @@ package blockchain
 import (
 	"context"
 	"net/url"
-	"time"
 
 	"doc-management/internal/blockchain/proposalfamily"
 	propfamily "doc-management/internal/blockchain/proposalfamily"
@@ -15,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/fxamacker/cbor"
-	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"go.uber.org/zap"
 )
@@ -28,9 +26,24 @@ const (
 	actionDelete action = "delete"
 )
 
-func (c Client) RemoveProposal(ctx context.Context, proposal model.Proposal) error {
-	// TODO
-	return nil
+func (c Client) RemoveProposal(ctx context.Context, proposalID string, signer *signing.Signer) (transactionID string, err error) {
+	proposalAddr := propfamily.GetProposalAddressFromID(proposalID)
+
+	docAddr, authorAddr, err := c.getAddrByProposalID(ctx, proposalID)
+	if err != nil {
+		c.logger.Warn("failed to get the doc addr from proposal ID by getting the state: " + err.Error())
+	}
+
+	payload := make(map[interface{}]interface{})
+	payload["action"] = actionDelete
+	payload["proposalID"] = proposalID
+
+	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, authorAddr, docAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
+	if err != nil {
+		return "", errors.New("failed to create a proposal sign transaction: " + err.Error())
+	}
+
+	return c.submitTransaction(ctx, transaction, signer)
 }
 
 func (c Client) getAddrByProposalID(ctx context.Context, proposalID string) (docAddr string, authorAddr string, err error) {
@@ -66,25 +79,7 @@ func (c Client) SignProposal(ctx context.Context, proposalID string, userID stri
 		return "", errors.New("failed to create a proposal sign transaction: " + err.Error())
 	}
 
-	// Get BatchList
-	batchId, batchList, err := createBatchList(
-		[]*transaction_pb2.Transaction{&transaction}, signer)
-
-	startTime := time.Now()
-	response, err := c.sendRequest(
-		ctx, batchAPI, batchList, contentTypeOctetStream)
-	if err != nil {
-		return "", err
-	}
-	status, err := c.getStatus(batchId, startTime)
-	if err != nil {
-		return "", err
-	}
-
-	c.logger.Info("request response: " + response)
-	c.logger.Info("request status: " + status)
-
-	return transaction.HeaderSignature, nil
+	return c.submitTransaction(ctx, transaction, signer)
 }
 
 // GetActiveProposals returns all active proposals
@@ -275,23 +270,6 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 		return "", errors.New("failed to create a new proposal transaction: " + err.Error())
 	}
 
-	// Get BatchList
-	batchId, batchList, err := createBatchList(
-		[]*transaction_pb2.Transaction{&transaction}, signer)
-
-	startTime := time.Now()
-	response, err := c.sendRequest(
-		ctx, batchAPI, batchList, contentTypeOctetStream)
-	if err != nil {
-		return "", err
-	}
-	status, err := c.getStatus(batchId, startTime)
-	if err != nil {
-		return "", err
-	}
-
-	c.logger.Info("request response: " + response)
-	c.logger.Info("request status: " + status)
-	return transaction.HeaderSignature, nil
+	return c.submitTransaction(ctx, transaction, signer)
 
 }

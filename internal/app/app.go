@@ -111,8 +111,19 @@ func (a App) fillAndVerifyContent(ctx context.Context, propos []model.Proposal) 
 		if dbContentHash != p.ContentHash {
 			a.logger.Error("proposal content hash not matched! removing...", zap.String("proposalID", p.ProposalID), zap.String("dbHash", dbContentHash), zap.String("expectedHash", p.ContentHash))
 
-			_ = a.db.RemoveProposal(context.Background(), p)
-			_ = a.blkchnClient.RemoveProposal(context.Background(), p)
+			if err := a.db.RemoveProposal(context.Background(), p); err != nil {
+				a.logger.Error("failed to remove the proposal from db: " + err.Error())
+			}
+
+			key, err := a.keyManager.GetAppKey()
+			if err != nil {
+				a.logger.Error("can't remove from blockchain, getting app key failed: " + err.Error())
+				continue
+			}
+			if _, err := a.blkchnClient.RemoveProposal(context.Background(), p.ProposalID, key.GetSigner()); err != nil {
+				a.logger.Error("can't remove the proposal from blockchain: " + err.Error())
+			}
+
 			continue
 		}
 

@@ -34,6 +34,11 @@ func NewKeyManager(logger *zap.Logger) KeyManager {
 	}
 }
 
+func (k KeyManager) GetAppKey() (UserKeys, error) {
+	// TODO: app key is constant
+	return k.GenerateKeys()
+}
+
 // source: https://github.com/ethereum/go-ethereum/blob/86d547707965685cef732aa28c15e6811ea98408/crypto/secp256k1/secp256_test.go#L19
 func (k KeyManager) GenerateKeys() (UserKeys, error) {
 	key, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
