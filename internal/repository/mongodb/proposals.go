@@ -3,7 +3,6 @@ package mongodb
 import (
 	"context"
 	"doc-management/internal/config"
-	"doc-management/internal/hashing"
 	"doc-management/internal/model"
 	"errors"
 	"fmt"
@@ -16,17 +15,18 @@ const (
 	proposalsCollection = "proposals"
 )
 
+type storedProposal struct {
+	ProposalID string `bson:"_id" json:"id"`
+	Content    []byte
+}
+
 func (b Repository) InsertProposal(ctx context.Context, proposal model.Proposal) error {
 
 	coll := b.client.Database(config.GetDatabaseName()).Collection(proposalsCollection)
 
-	storedPropos := Proposal{
-		ProposalID:     proposal.ProposalID,
-		Category:       proposal.Category,
-		Name:           proposal.DocumentName,
-		Author:         proposal.ModificationAuthor,
-		Content:        proposal.Content,
-		ProposedStatus: proposal.ProposedStatus.String(),
+	storedPropos := storedProposal{
+		ProposalID: proposal.ProposalID,
+		Content:    proposal.Content,
 	}
 
 	data, err := bson.Marshal(storedPropos)
@@ -69,18 +69,7 @@ func (b Repository) RemoveProposal(ctx context.Context, proposal model.Proposal)
 
 }
 
-func (b Repository) GetToSignProposals(ctx context.Context, userID string) ([]model.Proposal, error) {
-
-	filter := bson.M{
-		"author": bson.M{
-			"$ne": userID,
-		},
-	}
-
-	return b.getProposals(ctx, filter)
-}
-
-func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]model.Proposal, error) {
+func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]storedProposal, error) {
 	coll := b.client.Database(config.GetDatabaseName()).Collection(proposalsCollection)
 
 	cursor, err := coll.Find(ctx, filter)
@@ -88,47 +77,12 @@ func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]model.Pr
 		return nil, errors.New("failed to find the user proposals: " + err.Error())
 	}
 
-	var storedPropos []Proposal
+	var storedPropos []storedProposal
 	if err := cursor.All(ctx, &storedPropos); err != nil {
 		return nil, errors.New("failed to get all proposals from the cursor: " + err.Error())
 	}
 
-	var modelPropos = make([]model.Proposal, len(storedPropos))
-	for i, stored := range storedPropos {
-		// content hash is always recalculated everytime the data is retrieved
-		contentHash := hashing.CalculateSHA512(string(stored.Content))
-
-		modelPropos[i] = model.Proposal{
-			ProposalID: stored.ProposalID,
-
-			DocumentName: stored.Name,
-			Category:     stored.Category,
-
-			ModificationAuthor: stored.Author,
-			Content:            stored.Content,
-			ContentHash:        contentHash,
-			ProposedStatus:     model.DocStatus(stored.ProposedStatus),
-		}
-	}
-
-	return modelPropos, nil
-}
-
-func (b Repository) GetUserProposals(ctx context.Context, userID string) ([]model.Proposal, error) {
-
-	filter := bson.M{
-		"author": userID,
-	}
-
-	return b.getProposals(ctx, filter)
-}
-
-func (b Repository) GetCategoryProposals(ctx context.Context, category string) ([]model.Proposal, error) {
-	filter := bson.M{
-		"category": category,
-	}
-
-	return b.getProposals(ctx, filter)
+	return storedPropos, nil
 }
 
 func (b Repository) FillProposalContent(ctx context.Context, proposal model.Proposal) (model.Proposal, error) {
