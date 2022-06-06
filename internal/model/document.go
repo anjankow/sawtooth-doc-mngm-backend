@@ -3,9 +3,8 @@ package model
 type DocStatus string
 
 const (
-	DocStatusActive   DocStatus = "active"
-	DocStatusAccepted DocStatus = "accepted"
-	DocStatusDeleted  DocStatus = "deleted"
+	DocStatusActive  DocStatus = "active"
+	DocStatusRemoved DocStatus = "removed"
 )
 
 const DefaultCategory = "general"
@@ -26,5 +25,9 @@ type Document struct {
 }
 
 func (status DocStatus) IsValid() bool {
-	return status == DocStatusAccepted || status == DocStatusDeleted || status == DocStatusActive
+	return status == DocStatusRemoved || status == DocStatusActive
+}
+
+func (status DocStatus) String() string {
+	return string(status)
 }

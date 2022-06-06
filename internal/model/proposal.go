@@ -7,6 +7,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type ProposalStatus string
+
+const (
+	ProposalStatusActive   ProposalStatus = "active"
+	ProposalStatusAccepted ProposalStatus = "accepted"
+	ProposalStatusRemoved  ProposalStatus = "removed"
+)
+
 type Proposal struct {
 	ProposalID   string
 	DocumentName string
@@ -15,15 +23,15 @@ type Proposal struct {
 	ModificationAuthor string
 	Content            []byte
 	ContentHash        string
-	ProposedStatus     string
-	CurrentStatus      string
+	ProposedStatus     DocStatus
+	CurrentStatus      ProposalStatus
 
 	Signers []string
 }
 
 func (proposal Proposal) Validate() error {
-	if status := (DocStatus)(proposal.ProposedStatus); !status.IsValid() {
-		return errors.New("invalid document status: " + proposal.ProposedStatus)
+	if proposal.ProposedStatus.IsValid() {
+		return errors.New("invalid document status: " + proposal.ProposedStatus.String())
 	}
 
 	return nil
@@ -37,7 +45,7 @@ func (proposal *Proposal) Complete() {
 		proposal.Category = DefaultCategory
 	}
 	if proposal.ProposedStatus == "" {
-		proposal.ProposedStatus = string(DocStatusActive)
+		proposal.ProposedStatus = DocStatusActive
 	}
 	proposal.ContentHash = hashing.CalculateSHA512(string(proposal.Content))
 }

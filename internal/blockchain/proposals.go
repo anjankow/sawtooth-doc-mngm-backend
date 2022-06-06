@@ -133,8 +133,8 @@ func convertToModelProposal(propData propfamily.ProposalData) model.Proposal {
 		ModificationAuthor: propData.Author,
 		Content:            []byte{},
 		ContentHash:        propData.ContentHash,
-		ProposedStatus:     propData.ProposedDocStatus,
-		CurrentStatus:      propData.CurrentStatus,
+		ProposedStatus:     model.DocStatus(propData.ProposedDocStatus),
+		CurrentStatus:      model.ProposalStatus(propData.CurrentStatus),
 		Signers:            propData.Signers,
 	}
 }

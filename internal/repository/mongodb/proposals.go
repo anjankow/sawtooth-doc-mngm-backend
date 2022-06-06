@@ -26,7 +26,7 @@ func (b Repository) InsertProposal(ctx context.Context, proposal model.Proposal)
 		Name:           proposal.DocumentName,
 		Author:         proposal.ModificationAuthor,
 		Content:        proposal.Content,
-		ProposedStatus: proposal.ProposedStatus,
+		ProposedStatus: proposal.ProposedStatus.String(),
 	}
 
 	data, err := bson.Marshal(storedPropos)
@@ -107,7 +107,7 @@ func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]model.Pr
 			ModificationAuthor: stored.Author,
 			Content:            stored.Content,
 			ContentHash:        contentHash,
-			ProposedStatus:     stored.ProposedStatus,
+			ProposedStatus:     model.DocStatus(stored.ProposedStatus),
 		}
 	}
 

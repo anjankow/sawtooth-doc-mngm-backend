@@ -170,7 +170,7 @@ func (ser server) readAddProposalParams(r *http.Request) (model.Proposal, error)
 		Category:           category,
 		ModificationAuthor: userID,
 		Content:            bytes,
-		ProposedStatus:     docStatus,
+		ProposedStatus:     model.DocStatus(docStatus),
 	}, nil
 }
 
