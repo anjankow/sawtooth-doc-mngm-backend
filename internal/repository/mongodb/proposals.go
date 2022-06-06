@@ -74,7 +74,7 @@ func (b Repository) getProposals(ctx context.Context, filter bson.M) ([]storedPr
 
 	cursor, err := coll.Find(ctx, filter)
 	if err != nil {
-		return nil, errors.New("failed to find the user proposals: " + err.Error())
+		return nil, errors.New("failed to find the proposals: " + err.Error())
 	}
 
 	var storedPropos []storedProposal
