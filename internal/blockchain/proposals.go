@@ -18,14 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-type action string
-
-const (
-	actionInsert action = "insert"
-	actionVote   action = "vote"
-	actionDelete action = "delete"
-)
-
 func (c Client) RemoveProposal(ctx context.Context, proposalID string, signer *signing.Signer) (transactionID string, err error) {
 	proposalAddr := propfamily.GetProposalAddressFromID(proposalID)
 
@@ -35,7 +27,7 @@ func (c Client) RemoveProposal(ctx context.Context, proposalID string, signer *s
 	}
 
 	payload := make(map[interface{}]interface{})
-	payload["action"] = actionDelete
+	payload["action"] = proposalfamily.ActionDelete
 	payload["proposalID"] = proposalID
 
 	transaction, err := NewTransaction(payload, signer, []string{proposalAddr, authorAddr, docAddr}, propfamily.FamilyName, propfamily.FamilyVersion)
@@ -70,7 +62,7 @@ func (c Client) SignProposal(ctx context.Context, proposalID string, userID stri
 	}
 
 	payload := make(map[interface{}]interface{})
-	payload["action"] = actionVote
+	payload["action"] = proposalfamily.ActionVote
 	payload["proposalID"] = proposalID
 	payload["voter"] = userID
 
@@ -265,7 +257,7 @@ func (c Client) SubmitProposal(ctx context.Context, proposal model.Proposal, sig
 	docAddress := proposalfamily.GetDocAddress(proposal.Category, proposal.DocumentName)
 
 	payload := make(map[interface{}]interface{})
-	payload["action"] = actionInsert
+	payload["action"] = proposalfamily.ActionInsert
 	payload["proposalID"] = proposal.ProposalID
 	payload["category"] = proposal.Category
 	payload["docName"] = proposal.DocumentName
