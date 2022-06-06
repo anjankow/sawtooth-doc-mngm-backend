@@ -2,6 +2,7 @@ package http
 
 import (
 	"doc-management/internal/app"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/rs/cors"
 	"go.uber.org/zap"
 )
+
+var ErrSearchTooBroad = errors.New("query is too broad, include filters")
 
 type server struct {
 	app        *app.App

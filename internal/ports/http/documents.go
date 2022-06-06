@@ -30,7 +30,12 @@ func (r *retrivedDocVersion) assign(doc model.Document) {
 
 func (ser server) getDocVersions(w http.ResponseWriter, r *http.Request) {
 	docName, category := ser.readGetDocVersionParams(r)
-	ser.logger.Info("getting " + docName + " " + category)
+	ser.logger.Debug("getting doc " + docName + ", category " + category)
+
+	if docName == "" || category == "" {
+		ser.badRequest(w, "both docName and category need to be given")
+		return
+	}
 
 	docs, err := ser.app.GetDocumentVersions(r.Context(), docName, category)
 	if err != nil {
@@ -44,7 +49,12 @@ func (ser server) getDocVersions(w http.ResponseWriter, r *http.Request) {
 func (ser server) getDocuments(w http.ResponseWriter, r *http.Request) {
 
 	author, signer := ser.readGetDocsParams(r)
-	ser.logger.Info("getting " + author + " " + signer)
+	ser.logger.Debug("getting docs, author {" + author + "}, signer {" + signer + "}")
+
+	if author == "" && signer == "" {
+		ser.badRequest(w, ErrSearchTooBroad.Error())
+		return
+	}
 
 	docs, err := ser.app.GetDocuments(r.Context(), author, signer)
 	if err != nil {

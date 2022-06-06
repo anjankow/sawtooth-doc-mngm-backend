@@ -53,7 +53,7 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 	ser.logger.Info("getting all the proposals", zap.String("userID", userID), zap.String("category", category))
 
 	if userID == "" && category == "" {
-		ser.badRequest(w, "the query is too broad, include some filters")
+		ser.badRequest(w, ErrSearchTooBroad.Error())
 		return
 	}
 
