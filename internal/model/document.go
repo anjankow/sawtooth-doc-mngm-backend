@@ -5,6 +5,7 @@ type DocStatus string
 const (
 	DocStatusActive  DocStatus = "active"
 	DocStatusRemoved DocStatus = "removed"
+	DocStatusInvalid DocStatus = "invalid"
 )
 
 const DefaultCategory = "general"
@@ -16,7 +17,7 @@ type Document struct {
 
 	Author      string
 	Content     []byte
-	ContentHash []byte
+	ContentHash string
 
 	Version int
 	Status  DocStatus
@@ -30,4 +31,17 @@ func (status DocStatus) IsValid() bool {
 
 func (status DocStatus) String() string {
 	return string(status)
+}
+
+func NewDocumentFromProposal(proposal Proposal, version int) Document {
+	return Document{
+		DocumentName: proposal.DocumentName,
+		Category:     proposal.Category,
+		Author:       proposal.ModificationAuthor,
+		Content:      proposal.Content,
+		ContentHash:  proposal.ContentHash,
+		Version:      version,
+		Status:       proposal.ProposedStatus,
+		ProposalID:   proposal.ProposalID,
+	}
 }
