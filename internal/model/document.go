@@ -15,12 +15,14 @@ type Document struct {
 	DocumentName string
 	Category     string
 
-	ModificationAuthor string
-	Content            []byte
-	ContentHash        []byte
+	Author      string
+	Content     []byte
+	ContentHash []byte
 
 	Version int
 	Status  DocStatus
+
+	ProposalID string
 }
 
 func (status DocStatus) IsValid() bool {

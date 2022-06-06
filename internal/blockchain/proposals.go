@@ -157,6 +157,14 @@ func (c Client) GetDocProposals(ctx context.Context, category string, documentNa
 
 	return proposals, nil
 }
+func (c Client) GetProposal(ctx context.Context, proposalID string) (model.Proposal, error) {
+	propData, err := c.getProposalState(ctx, proposalID)
+	if err != nil {
+		return model.Proposal{}, errors.New("failed to get the proposal from blockchain: " + err.Error())
+	}
+
+	return convertToModelProposal(propData), nil
+}
 
 // GetUserProposals returns only active proposals created by the user
 func (c Client) GetUserProposals(ctx context.Context, user string) (proposals []model.Proposal, err error) {

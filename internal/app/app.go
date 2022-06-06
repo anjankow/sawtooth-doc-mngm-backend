@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	submitTimeout = 10 * time.Second
+	submitTimeout           = 10 * time.Second
+	acceptingProcessTimeout = 10 * time.Second
 )
 
 var ErrProposalExists = errors.New("proposal already exists")
@@ -59,8 +60,133 @@ func (a App) Stop() {
 }
 
 func (a App) handleProposalAccepted(data []byte) error {
-	a.logger.Info("received proposal accepted: " + string(data))
+	// proposalID := string(data)
+	// if proposalID == "" {
+	// 	return errors.New("can't process accepted proposal, proposal ID is missing")
+	// }
+
+	// ctx, cancel := context.WithTimeout(context.Background(), acceptingProcessTimeout)
+	// defer cancel()
+
+	// // TODO: use the user's keys obtained from the key manager
+	// keys, err := a.keyManager.GenerateKeys()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// a.logger.Info("submitting accepted doc version", zap.String("proposalID", proposalID))
+
+	// proposal, err := a.getProposalData(ctx, proposalID)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// doc, err := a.blkchnClient.GetLatestDocVersion(ctx, proposal.Category, proposal.DocumentName)
+	// if err != nil {
+	// 	return errors.New("failed to get the latest doc version: " + err.Error())
+	// }
+
+	// newDoc := model.ConvertProposalToDoc(proposal, doc.Version+1)
+
+	// if err := a.db.InsertDocumentVersion(ctx, newDoc); err != nil {
+	// 	return errors.New("failed to insert the accepted doc into db: " + err.Error())
+	// }
+
+	// // submit to blockchain only if all the previous operations succeeded, as this action is irreversible
+	// transactionID, err := a.blkchnClient.SubmitDocumentVersion(ctx, newDoc, keys.GetSigner())
+	// if err != nil {
+	// 	// remove the doc from the database
+	// 	a.logger.Debug("removing the doc content from the database on error", zap.String("proposalID", proposal.ProposalID), zap.Error(err))
+	// 	_ = a.db.RemoveDocumentVersion(context.Background(), newDoc.Category, newDoc.DocumentName, newDoc.Version)
+	// 	return err
+	// }
+
+	// a.logger.Info("new doc version saved, transaction ID: "+transactionID, zap.String("docName", newDoc.DocumentName), zap.String("author", newDoc.Author))
+
 	return nil
+}
+
+func (a App) GetDocumentVersions(ctx context.Context, docName, category string) ([]model.Document, error) {
+	return []model.Document{
+		{
+			DocumentName: docName,
+			Category:     category,
+			Author:       "sdkfm",
+			Content:      []byte("strfdsgdf"),
+			Version:      1,
+			Status:       "safs",
+			ProposalID:   "21321",
+		},
+		{
+			DocumentName: docName,
+			Category:     category,
+			Author:       "sdkfmaa",
+			Content:      []byte("asdasdadaaaaaa"),
+			Version:      3,
+			Status:       "safs",
+			ProposalID:   "21321s",
+		},
+		{
+			DocumentName: docName,
+			Category:     category,
+			Author:       "sdkfmaa11",
+			Content:      []byte("as2dasdadaaaaaa"),
+			Version:      2,
+			Status:       "safs",
+			ProposalID:   "321321s",
+		},
+	}, nil
+}
+
+func (a App) GetDocuments(ctx context.Context, docName, category string) ([]model.Document, error) {
+	return []model.Document{
+		{
+			DocumentName: docName,
+			Category:     category,
+			Author:       "sdkfm",
+			Content:      []byte("strfdsgdf"),
+			Version:      1,
+			Status:       "safs",
+			ProposalID:   "21321",
+		},
+		{
+			DocumentName: "aaa",
+			Category:     category,
+			Author:       "sdkfmaa",
+			Content:      []byte("asdasdadaaaaaa"),
+			Version:      3,
+			Status:       "safs",
+			ProposalID:   "21321s",
+		},
+		{
+			DocumentName: docName,
+			Category:     "aaa",
+			Author:       "sdkfmaa11",
+			Content:      []byte("as2dasdadaaaaaa"),
+			Version:      2,
+			Status:       "safs",
+			ProposalID:   "321321s",
+		},
+	}, nil
+}
+
+func (a App) getProposalData(ctx context.Context, proposalID string) (model.Proposal, error) {
+	proposal, err := a.blkchnClient.GetProposal(ctx, proposalID)
+	if err != nil {
+		return model.Proposal{}, err
+	}
+
+	filled, err := a.fillAndVerifyContent(ctx, []model.Proposal{proposal})
+	if err != nil {
+		return model.Proposal{}, err
+	}
+
+	if len(filled) < 1 {
+		return model.Proposal{}, errors.New("can't accept the proposal, content verification failed, proposalID: " + proposalID)
+	}
+
+	return filled[0], nil
+
 }
 
 // SignProposal user ID refers to a user who signs the proposal
