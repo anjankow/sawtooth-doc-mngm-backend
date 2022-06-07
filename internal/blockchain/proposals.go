@@ -8,12 +8,9 @@ import (
 	propfamily "doc-management/internal/blockchain/proposalfamily"
 	"doc-management/internal/blockchain/settingsfamily"
 	"doc-management/internal/model"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/fxamacker/cbor"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"go.uber.org/zap"
 )
@@ -88,17 +85,15 @@ func (c Client) GetActiveProposals(ctx context.Context) (proposals []model.Propo
 		return
 	}
 
-	var unmarshalled struct {
-		Data []json.RawMessage
+	unmarshalled, err := unmarshalDataList(response)
+	if err != nil {
+		return
 	}
-	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
-		return proposals, errors.New("get active proposals: failed to unmarshal the response: " + err.Error())
-	}
-	c.logger.Info(fmt.Sprint("fetched ", len(unmarshalled.Data), " proposals from the current state"))
+	// c.logger.Info(fmt.Sprint("fetched ", len(unmarshalled), " proposals from the current state"))
 
-	for _, payload := range unmarshalled.Data {
+	for _, payload := range unmarshalled {
 		var proposal propfamily.ProposalData
-		if err := c.unmarshalStatePayload(&proposal, string(payload)); err != nil {
+		if err := unmarshalStatePayload(&proposal, string(payload)); err != nil {
 			c.logger.Error("get active proposals: failed to unmarshal the proposal payload: " + err.Error())
 			continue
 		}
@@ -133,7 +128,7 @@ func convertToModelProposal(propData propfamily.ProposalData) model.Proposal {
 
 // GetDocProposals fills in only proposal ID and content hash
 func (c Client) GetDocProposals(ctx context.Context, category string, documentName string) (proposals []model.Proposal, err error) {
-	payload, err := c.getDocState(ctx, category, documentName)
+	payload, err := c.getDocProposalState(ctx, category, documentName)
 	if err != nil {
 		return
 	}
@@ -183,26 +178,7 @@ func (c Client) GetUserProposals(ctx context.Context, user string) (proposals []
 	return proposals, nil
 }
 
-func (c Client) unmarshalStatePayload(out interface{}, response string) error {
-	var unmarshalled struct {
-		Data string
-	}
-	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
-		return errors.New("failed to unmarshal the response: " + err.Error())
-	}
-	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data)
-	if err != nil {
-		return errors.New("failed to decode the payload: " + err.Error())
-	}
-
-	if err := cbor.Unmarshal([]byte(decoded), out); err != nil {
-		return errors.New("failed to unmarshal the payload: " + err.Error())
-	}
-
-	return nil
-}
-
-func (c Client) getDocState(ctx context.Context, category string, docName string) (data propfamily.DocData, err error) {
+func (c Client) getDocProposalState(ctx context.Context, category string, docName string) (data propfamily.DocData, err error) {
 	addr := propfamily.GetDocAddress(category, docName)
 	url := fmt.Sprintf("%s/%s", stateAPI, addr)
 	response, err := c.sendRequest(ctx, url, nil, "")
@@ -211,7 +187,7 @@ func (c Client) getDocState(ctx context.Context, category string, docName string
 	}
 
 	var payload propfamily.DocData
-	if err := c.unmarshalStatePayload(&payload, response); err != nil {
+	if err := unmarshalStatePayload(&payload, response); err != nil {
 		return data, errors.New("get proposal state error: " + err.Error())
 	}
 
@@ -227,7 +203,7 @@ func (c Client) getProposalState(ctx context.Context, proposalID string) (data p
 	}
 
 	var payload propfamily.ProposalData
-	if err := c.unmarshalStatePayload(&payload, response); err != nil {
+	if err := unmarshalStatePayload(&payload, response); err != nil {
 		return data, errors.New("get proposal state error: " + err.Error())
 	}
 
@@ -243,7 +219,7 @@ func (c Client) getUserState(ctx context.Context, user string) (data propfamily.
 	}
 
 	var payload propfamily.UserData
-	if err := c.unmarshalStatePayload(&payload, response); err != nil {
+	if err := unmarshalStatePayload(&payload, response); err != nil {
 		return data, errors.New("get user state error: " + err.Error())
 	}
 

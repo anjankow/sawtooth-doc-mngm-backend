@@ -3,7 +3,9 @@ package blockchain
 import (
 	bytes2 "bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fxamacker/cbor"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
@@ -199,4 +202,35 @@ func (c Client) getStatusRequest(ctx context.Context,
 	entry :=
 		responseMap["data"].([]interface{})[0].(map[string]interface{})
 	return fmt.Sprint(entry["status"]), nil
+}
+
+func unmarshalDataList(response string) ([]json.RawMessage, error) {
+
+	var unmarshalled struct {
+		Data []json.RawMessage
+	}
+	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
+		return []json.RawMessage{}, errors.New("failed to unmarshal data list: " + err.Error())
+	}
+
+	return unmarshalled.Data, nil
+}
+
+func unmarshalStatePayload(out interface{}, response string) error {
+	var unmarshalled struct {
+		Data string
+	}
+	if err := json.Unmarshal([]byte(response), &unmarshalled); err != nil {
+		return errors.New("failed to unmarshal the response: " + err.Error())
+	}
+	decoded, err := base64.StdEncoding.DecodeString(unmarshalled.Data)
+	if err != nil {
+		return errors.New("failed to decode the payload: " + err.Error())
+	}
+
+	if err := cbor.Unmarshal([]byte(decoded), out); err != nil {
+		return errors.New("failed to unmarshal the payload: " + err.Error())
+	}
+
+	return nil
 }
