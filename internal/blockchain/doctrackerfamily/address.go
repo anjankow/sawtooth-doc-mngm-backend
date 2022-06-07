@@ -3,6 +3,7 @@ package doctrackerfamily
 import (
 	"doc-management/internal/hashing"
 	"doc-management/internal/model"
+	"fmt"
 	"sync"
 )
 
@@ -23,13 +24,23 @@ func initHashVars() {
 	})
 }
 
-func GetDocAddress(doc model.Document) (address string) {
+func GetDocAddress(category string, docName string) (address string) {
+	initHashVars()
+
+	categoryHash := hashing.CalculateSHA512(category)
+	docNameHash := hashing.CalculateSHA512(docName)
+
+	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:48]
+}
+
+func GetDocVersionAddress(doc model.Document) (address string) {
 	initHashVars()
 
 	categoryHash := hashing.CalculateSHA512(doc.Category)
 	docNameHash := hashing.CalculateSHA512(doc.DocumentName)
+	docVersion := fmt.Sprintf("%04d", doc.Version)
 
-	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:52]
+	return familyHash[0:6] + docPrefixHash[0:6] + categoryHash[0:6] + docNameHash[0:48] + docVersion[0:4]
 }
 
 func GetUserAddress(user string) (address string) {

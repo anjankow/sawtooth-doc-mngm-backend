@@ -23,6 +23,8 @@ type Document struct {
 	Status  DocStatus
 
 	ProposalID string
+
+	Signers []string
 }
 
 func (status DocStatus) IsValid() bool {
@@ -43,5 +45,6 @@ func NewDocumentFromProposal(proposal Proposal, version int) Document {
 		Version:      version,
 		Status:       proposal.ProposedStatus,
 		ProposalID:   proposal.ProposalID,
+		Signers:      proposal.Signers,
 	}
 }
