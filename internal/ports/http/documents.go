@@ -23,9 +23,15 @@ func (r *retrivedDocVersion) assign(doc model.Document) {
 	r.Name = doc.DocumentName
 	r.Category = doc.Category
 	r.Version = doc.Version
-	r.Content = string(doc.Content)
 	r.Author = doc.Author
 	r.Status = string(doc.Status)
+
+	// limit the content length to display
+	if len(doc.Content) > 80 {
+		r.Content = string(doc.Content[:80])
+	} else {
+		r.Content = string(doc.Content)
+	}
 }
 
 func (ser server) getDocVersions(w http.ResponseWriter, r *http.Request) {

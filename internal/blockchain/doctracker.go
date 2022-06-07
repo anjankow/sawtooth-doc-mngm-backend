@@ -129,6 +129,7 @@ func (c Client) InvalidateDocumentVersion(ctx context.Context, doc model.Documen
 
 	payload := make(map[interface{}]interface{})
 	payload["action"] = doctrackerfamily.ActionInvalidate
+	payload["address"] = docDataAddress
 
 	transaction, err := NewTransaction(payload, signer, []string{docDataAddress}, doctrackerfamily.FamilyName, doctrackerfamily.FamilyVersion)
 	if err != nil {
@@ -151,7 +152,7 @@ func (c Client) SubmitDocumentVersion(ctx context.Context, doc model.Document, s
 	payload["action"] = doctrackerfamily.ActionInsert
 	payload["proposalID"] = doc.ProposalID
 	payload["category"] = doc.Category
-	payload["docName"] = doc.DocumentName
+	payload["documentName"] = doc.DocumentName
 	payload["contentHash"] = doc.ContentHash
 	payload["status"] = doc.Status
 	payload["author"] = doc.Author

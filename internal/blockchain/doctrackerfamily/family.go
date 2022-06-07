@@ -11,7 +11,7 @@ const (
 	FamilyName    string = "doctracker"
 	FamilyVersion string = "1.0"
 
-	// to hold all the versions of a doc
+	// to hold versions of a doc
 	docPrefix = "doc"
 	// to hold ids of documents created by this user
 	// and those that the user signed

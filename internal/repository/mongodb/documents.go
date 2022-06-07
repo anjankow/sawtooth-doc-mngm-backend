@@ -8,8 +8,6 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.uber.org/zap"
 )
 
 const (
@@ -38,16 +36,9 @@ func (b Repository) InsertDocumentVersion(ctx context.Context, doc model.Documen
 		return errors.New("failed to marshal the doc: " + err.Error())
 	}
 
-	o := options.Replace()
-	o.SetUpsert(true)
-	// using replace one to allow repeating the operation on error when saving to the blockchain
-	result, err := coll.ReplaceOne(ctx, data, o)
+	_, err = coll.InsertOne(ctx, data)
 	if err != nil {
 		return errors.New("failed to insert a new doc: " + err.Error())
-	}
-
-	if result.MatchedCount > 0 {
-		b.logger.Info("replaced the existing doc content", zap.String("docName", doc.DocumentName), zap.String("category", doc.Category), zap.Int("version", doc.Version))
 	}
 
 	return nil

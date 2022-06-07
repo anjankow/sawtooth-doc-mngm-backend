@@ -30,7 +30,7 @@ type Proposal struct {
 }
 
 func (proposal Proposal) Validate() error {
-	if proposal.ProposedStatus.IsValid() {
+	if !proposal.ProposedStatus.IsValid() {
 		return errors.New("invalid document status: " + proposal.ProposedStatus.String())
 	}
 
