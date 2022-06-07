@@ -21,12 +21,13 @@ const (
 )
 
 type retrivedProposal struct {
-	ProposalID string   `json:"proposalID"`
-	Name       string   `json:"name"`
-	Category   string   `json:"category"`
-	Content    string   `json:"content"`
-	Author     string   `json:"author"`
-	Signers    []string `json:"signers"`
+	ProposalID     string   `json:"proposalID"`
+	Name           string   `json:"name"`
+	Category       string   `json:"category"`
+	Content        string   `json:"content"`
+	Author         string   `json:"author"`
+	Signers        []string `json:"signers"`
+	ProposedStatus string   `json:"proposedStatus"`
 }
 
 func (ser server) signProposal(w http.ResponseWriter, r *http.Request) {
@@ -76,11 +77,12 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 	proposToReturn := make([]retrivedProposal, len(proposals))
 	for i, proposal := range proposals {
 		proposToReturn[i] = retrivedProposal{
-			ProposalID: proposal.ProposalID,
-			Name:       proposal.DocumentName,
-			Category:   proposal.Category,
-			Author:     proposal.ModificationAuthor,
-			Signers:    proposal.Signers,
+			ProposalID:     proposal.ProposalID,
+			Name:           proposal.DocumentName,
+			Category:       proposal.Category,
+			Author:         proposal.ModificationAuthor,
+			Signers:        proposal.Signers,
+			ProposedStatus: proposal.ProposedStatus.String(),
 		}
 		// limit the content length to display
 		if len(proposal.Content) > 80 {
@@ -144,32 +146,44 @@ func (ser server) readAddProposalParams(r *http.Request) (model.Proposal, error)
 	category := normalize(r.FormValue("category"))
 	docStatus := normalize(r.FormValue("docStatus"))
 
-	file, handler, err := r.FormFile("docFile")
-	if err != nil {
-		err = multierr.Append(err, errors.New("failed to get the proposal file from form: "+err.Error()))
-	}
-	defer file.Close()
+	var content []byte
+	// if the doc is to be removed, there is no file content
+	if docStatus != model.DocStatusRemoved.String() {
 
-	if err != nil {
-		return model.Proposal{}, err
-	}
+		file, handler, err := r.FormFile("docFile")
+		if err != nil {
+			err = multierr.Append(err, errors.New("failed to get the proposal file from form: "+err.Error()))
+		}
+		defer file.Close()
 
-	bytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		return model.Proposal{}, errors.New("failed to read the proposal file: " + err.Error())
-	}
+		if err != nil {
+			return model.Proposal{}, err
+		}
 
-	if len(bytes) != int(handler.Size) {
-		return model.Proposal{}, errors.New(fmt.Sprintf("upload error: size of received file: %v, size declared in the header: %v", len(bytes), handler.Size))
-	}
+		bytes, err := ioutil.ReadAll(file)
+		if err != nil {
+			return model.Proposal{}, errors.New("failed to read the proposal file: " + err.Error())
+		}
 
-	ser.logger.Info(fmt.Sprintf("received file: %s, size %v", handler.Filename, handler.Size))
+		if len(bytes) != int(handler.Size) {
+			return model.Proposal{}, errors.New(fmt.Sprintf("upload error: size of received file: %v, size declared in the header: %v", len(bytes), handler.Size))
+		}
+
+		ser.logger.Info(fmt.Sprintf("received file: %s, size %v", handler.Filename, handler.Size))
+		content = bytes
+
+	} else {
+		// just check previous validation errors
+		if err != nil {
+			return model.Proposal{}, err
+		}
+	}
 
 	return model.Proposal{
 		DocumentName:       docName,
 		Category:           category,
 		ModificationAuthor: userID,
-		Content:            bytes,
+		Content:            content,
 		ProposedStatus:     model.DocStatus(docStatus),
 	}, nil
 }
