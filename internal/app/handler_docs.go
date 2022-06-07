@@ -39,6 +39,11 @@ func (a App) fillAndVerifyDocContent(ctx context.Context, docs []model.Document)
 
 	// TODO: parallelize
 	for _, doc := range docs {
+		if doc.Status != model.DocStatusActive {
+			a.logger.Debug("skipping doc version "+fmt.Sprint(doc.Version)+", status: "+doc.Status.String(), zap.String("docName", doc.DocumentName), zap.String("category", doc.Category))
+			continue
+		}
+
 		docWithContent, err := a.db.FillDocumentContent(ctx, doc)
 		if err != nil {
 			a.logger.Error("error when getting the document content: "+err.Error(), zap.String("docName", doc.DocumentName), zap.String("category", doc.Category), zap.Int("version", doc.Version))
