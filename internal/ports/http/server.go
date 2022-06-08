@@ -76,6 +76,7 @@ func (ser server) Run() error {
 		Addr:    ser.addr,
 	}
 
+	ser.logger.Info("running HTTP server on " + ser.addr)
 	return ser.httpServer.ListenAndServe()
 }
 

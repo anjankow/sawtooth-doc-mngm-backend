@@ -26,8 +26,8 @@ type EventListener struct {
 	wg            *sync.WaitGroup
 }
 
-func NewEventListener(logger *zap.Logger, validatorHostname string) *EventListener {
-	validatorUrl := fmt.Sprint("tcp://", validatorHostname, ":4004")
+func NewEventListener(logger *zap.Logger, validatorAddr string) *EventListener {
+	validatorUrl := fmt.Sprint("tcp://", validatorAddr)
 	return &EventListener{
 		log:          logger,
 		validatorUrl: validatorUrl,

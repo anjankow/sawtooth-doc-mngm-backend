@@ -29,8 +29,8 @@ type App struct {
 
 func NewApp(logger *zap.Logger, db mongodb.Repository) App {
 	return App{
-		blkchnClient: blockchain.NewClient(logger, config.GetValidatorRestApiAddr()),
-		listener:     events.NewEventListener(logger, config.GetValidatorHostname()),
+		blkchnClient: blockchain.NewClient(logger, config.GetValidatorRestAPIAddr()),
+		listener:     events.NewEventListener(logger, config.GetValidatorAddr()),
 		keyManager:   keymanager.NewKeyManager(logger),
 		logger:       logger,
 		db:           db,

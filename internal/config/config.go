@@ -6,55 +6,75 @@ import (
 )
 
 const (
+	DefaultDbPort = ":27017"
+
 	defaultLocalPort      = ":8080"
 	defaultDatabaseName   = "documents"
 	defaultDbURI          = "mongodb://root:example@localhost:27017/"
+	defaultRestAPIAddr    = "localhost:8008"
+	defaultValidatorAddr  = "localhost:4004"
 	defaultRequestTimeout = 10 * time.Second
-
-	DefaultDbPort = ":27017"
 )
 
 var (
 	port          string
 	connectionURI string
 	dbName        string
+	validatorAddr string
+	restAPIAddr   string
 )
 
-func GetValidatorHostname() string {
-	return "localhost"
+func GetValidatorAddr() string {
+	if validatorAddr == "" {
+		addr := os.Getenv("VALIDATOR_ADDR")
+		if addr != "" {
+			validatorAddr = addr
+
+		} else {
+			validatorAddr = defaultValidatorAddr
+		}
+	}
+
+	return validatorAddr
 }
 
-func GetValidatorRestApiAddr() string {
-	return "http://localhost:8008"
+func GetValidatorRestAPIAddr() string {
+	if restAPIAddr == "" {
+		addr := os.Getenv("VALIDATOR_RESTAPI_ADDR")
+		if addr != "" {
+			restAPIAddr = addr
+
+		} else {
+			restAPIAddr = defaultRestAPIAddr
+		}
+	}
+
+	return restAPIAddr
 }
 
 // GetPort returns port prepended with `:`
 func GetPort() string {
-	if port != "" {
-		return port
+	if port == "" {
+		port = os.Getenv("PORT")
+		if port == "" {
+			port = defaultLocalPort
+		} else {
+			port = ":" + port
+		}
+
 	}
 
-	portNum := os.Getenv("PORT")
-	if portNum != "" {
-		port = ":" + portNum
-		return port
-	}
-
-	port = defaultLocalPort
 	return port
 }
 
 func GetDbConnectionURI() string {
-	if connectionURI != "" {
-		return connectionURI
-	}
+	if connectionURI == "" {
+		connectionURI = os.Getenv("DB_URI")
+		if connectionURI == "" {
 
-	connectionURI = os.Getenv("DB_URI")
-	if connectionURI != "" {
-		return connectionURI
+			connectionURI = defaultDbURI
+		}
 	}
-
-	connectionURI = defaultDbURI
 
 	return connectionURI
 }

@@ -13,7 +13,7 @@ import (
 
 func TestGetPayload(t *testing.T) {
 	logger := zap.NewExample()
-	client := NewClient(logger, config.GetValidatorRestApiAddr())
+	client := NewClient(logger, config.GetValidatorRestAPIAddr())
 	hashing.Initialize(logger)
 
 	responsePayload := `
