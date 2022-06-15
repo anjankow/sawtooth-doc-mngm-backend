@@ -8,7 +8,7 @@ import (
 const (
 	DefaultDbPort = ":27017"
 
-	defaultLocalPort      = ":8080"
+	defaultLocalPort      = ":8077"
 	defaultDatabaseName   = "documents"
 	defaultDbURI          = "mongodb://root:example@localhost:27017/"
 	defaultRestAPIAddr    = "localhost:8008"
