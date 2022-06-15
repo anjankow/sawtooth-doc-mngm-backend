@@ -3,11 +3,12 @@ package http
 import (
 	"doc-management/internal/app"
 	"doc-management/internal/config"
-	"doc-management/internal/ports/http/middleware/auth"
-	"doc-management/internal/ports/http/middleware/cors"
 	"errors"
 	"net/http"
 	"strings"
+
+	"doc-management/internal/ports/http/middleware/auth"
+	"doc-management/internal/ports/http/middleware/cors"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"

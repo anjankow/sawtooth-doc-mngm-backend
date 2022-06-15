@@ -23,7 +23,7 @@ func NewJwtMiddleware(secret string, logger *zap.Logger) (*jwtmiddleware.JWTMidd
 	// Set up the validator.
 	jwtValidator, err := validator.New(
 		keyFunc,
-		validator.HS256,
+		validator.RS256,
 		issuerURL,
 		audience,
 	)
@@ -35,9 +35,8 @@ func NewJwtMiddleware(secret string, logger *zap.Logger) (*jwtmiddleware.JWTMidd
 		logger.Warn("failed to auth the request: " + err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 	}
-
 	// Set up the middleware.
-	middleware := jwtmiddleware.New(jwtValidator.ValidateToken, jwtmiddleware.WithErrorHandler(errorHndl))
+	middleware := jwtmiddleware.New(jwtValidator.ValidateToken, jwtmiddleware.WithErrorHandler(errorHndl), jwtmiddleware.WithTokenExtractor(jwtmiddleware.AuthHeaderTokenExtractor))
 
 	return middleware, nil
 }
