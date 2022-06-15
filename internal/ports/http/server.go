@@ -2,12 +2,14 @@ package http
 
 import (
 	"doc-management/internal/app"
+	"doc-management/internal/config"
+	"doc-management/internal/ports/http/middleware/auth"
+	"doc-management/internal/ports/http/middleware/cors"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	"go.uber.org/zap"
 )
 
@@ -65,12 +67,14 @@ func (ser server) Run() error {
 	router := mux.NewRouter()
 	ser.registerHandlers(router)
 
-	c := cors.New(cors.Options{
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut},
-		AllowCredentials: true,
-		Debug:            false,
-	})
-	handler := c.Handler(router)
+	jwt, err := auth.NewJwtMiddleware(config.GetAppSecret(), ser.logger)
+	if err != nil {
+		return err
+	}
+
+	handler := cors.AddCorsPolicy(
+		auth.AddTokenValidation(jwt, router))
+
 	ser.httpServer = &http.Server{
 		Handler: handler,
 		Addr:    ser.addr,
