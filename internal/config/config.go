@@ -1,8 +1,9 @@
 package config
 
 import (
-	"os"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -19,43 +20,28 @@ const (
 var (
 	port          string
 	connectionURI string
-	dbName        string
-	validatorAddr string
-	restAPIAddr   string
 )
 
 func GetValidatorAddr() string {
-	if validatorAddr == "" {
-		addr := os.Getenv("VALIDATOR_ADDR")
-		if addr != "" {
-			validatorAddr = addr
 
-		} else {
-			validatorAddr = defaultValidatorAddr
-		}
+	if addr := viper.GetString("VALIDATOR_ADDR"); addr != "" {
+		return addr
 	}
-
-	return validatorAddr
+	return defaultValidatorAddr
 }
 
 func GetValidatorRestAPIAddr() string {
-	if restAPIAddr == "" {
-		addr := os.Getenv("VALIDATOR_RESTAPI_ADDR")
-		if addr != "" {
-			restAPIAddr = addr
 
-		} else {
-			restAPIAddr = defaultRestAPIAddr
-		}
+	if addr := viper.GetString("VALIDATOR_RESTAPI_ADDR"); addr != "" {
+		return addr
 	}
-
-	return restAPIAddr
+	return defaultRestAPIAddr
 }
 
 // GetPort returns port prepended with `:`
 func GetPort() string {
 	if port == "" {
-		port = os.Getenv("PORT")
+		port = viper.GetString("PORT")
 		if port == "" {
 			port = defaultLocalPort
 		} else {
@@ -69,7 +55,7 @@ func GetPort() string {
 
 func GetDbConnectionURI() string {
 	if connectionURI == "" {
-		connectionURI = os.Getenv("DB_URI")
+		connectionURI = viper.GetString("DB_URI")
 		if connectionURI == "" {
 
 			connectionURI = defaultDbURI
@@ -80,20 +66,16 @@ func GetDbConnectionURI() string {
 }
 
 func GetDatabaseName() string {
-	if dbName != "" {
-		return dbName
+	if dbNameEnv := viper.GetString("DB_NAME"); dbNameEnv != "" {
+		return dbNameEnv
 	}
-
-	dbNameEnv := os.Getenv("DB_NAME")
-	if dbNameEnv != "" {
-		dbName = dbNameEnv
-		return dbName
-	}
-
-	dbName = defaultDatabaseName
-	return dbName
+	return defaultDatabaseName
 }
 
 func GetRequestTimeout() time.Duration {
 	return defaultRequestTimeout
+}
+
+func GetAppSecret() string {
+	return viper.GetString("APP_SECRET")
 }

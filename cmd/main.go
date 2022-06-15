@@ -9,6 +9,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -22,6 +23,11 @@ func main() {
 	defer logger.Sync()
 
 	logger.Info("application started")
+
+	viper.SetConfigFile(".env")
+	if err := viper.ReadInConfig(); err != nil {
+		logger.Warn("failed to read the config file: " + err.Error())
+	}
 
 	hashing.Initialize(logger)
 	db, err := mongodb.NewConnection(logger, config.GetDbConnectionURI())
