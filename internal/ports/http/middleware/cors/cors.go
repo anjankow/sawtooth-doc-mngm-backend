@@ -11,6 +11,7 @@ func AddCorsPolicy(handler http.Handler) http.Handler {
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut},
 		AllowCredentials: true,
 		Debug:            false,
+		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	})
 
 	return c.Handler(handler)
