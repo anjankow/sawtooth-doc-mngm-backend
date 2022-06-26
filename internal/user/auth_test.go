@@ -9,19 +9,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetAppToken(t *testing.T) {
+func TestSetAppToken(t *testing.T) {
 	viper.SetConfigFile("./../../.env")
 	err := viper.ReadInConfig()
 	require.NoError(t, err)
 
-	manager := UserManager{
-		tenantID: config.GetTenantID(),
-		secret:   config.GetAppSecret(),
-		clientID: config.GetClientID(),
-	}
+	manager, err := NewUserManager(
+		config.GetTenantID(),
+		config.GetClientID(),
+		config.GetMsExtensionID(),
+		config.GetAppSecret(),
+	)
+	require.NoError(t, err)
 
-	token, err := manager.GetAppToken()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, token)
-	t.Log(token)
+	firstToken := manager.tokenGuard.token
+
+	assert.NotEmpty(t, firstToken)
+	t.Log(firstToken)
+
 }

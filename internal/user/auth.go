@@ -13,7 +13,7 @@ const (
 	loginDomain = "https://login.microsoftonline.com/"
 )
 
-func (m UserManager) GetAppToken() (string, error) {
+func (m UserManager) getAppToken() (string, error) {
 
 	path := loginDomain + m.tenantID + "/oauth2/v2.0/token"
 	data := url.Values{}
@@ -34,17 +34,32 @@ func (m UserManager) GetAppToken() (string, error) {
 	}
 
 	defer resp.Body.Close()
-	reponseBody, err := ioutil.ReadAll(resp.Body)
+	responseBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", errors.New("reading response error: " + err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New("status code: " + resp.Status + "; body: " + string(responseBody))
 	}
 
 	var unmarshalled struct {
 		Token string `json:"access_token"`
 	}
-	if err := json.Unmarshal(reponseBody, &unmarshalled); err != nil {
+	if err := json.Unmarshal(responseBody, &unmarshalled); err != nil {
 		return "", errors.New("failed to unmarshal the response: " + err.Error())
 	}
 
 	return unmarshalled.Token, nil
+}
+
+func (m UserManager) setNewAppToken() error {
+	token, err := m.getAppToken()
+	if err != nil {
+		return err
+	}
+
+	m.tokenGuard.token = token
+	return nil
+
 }
