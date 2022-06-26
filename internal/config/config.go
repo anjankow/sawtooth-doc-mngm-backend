@@ -77,5 +77,13 @@ func GetRequestTimeout() time.Duration {
 }
 
 func GetAppSecret() string {
-	return viper.GetString("APP_SECRET")
+	return viper.GetString("MS_CLIENT_SECRET")
+}
+
+func GetTenantID() string {
+	return viper.GetString("MS_TENANT_ID")
+}
+
+func GetClientID() string {
+	return viper.GetString("MS_CLIENT_ID")
 }
