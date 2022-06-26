@@ -87,3 +87,7 @@ func GetTenantID() string {
 func GetClientID() string {
 	return viper.GetString("MS_CLIENT_ID")
 }
+
+func GetMsExtensionID() string {
+	return viper.GetString("MS_EXTENSION_ID")
+}
