@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -59,8 +61,51 @@ func (t TokenValidator) authError(w http.ResponseWriter, err error) {
 	w.Write([]byte(err.Error()))
 }
 
-func (t TokenValidator) validateClaims(claims map[string]interface{}) error {
-	return nil
+// dirty solution, should be done with an approperiate library;
+// validating azure tokens using their tools fails
+// and azure tokens are incompatible with the standard JWT validation libraries
+func (t TokenValidator) validateClaims(claims map[string]interface{}) (err error) {
+	if issuer, ok := claims["iss"]; ok {
+		issuerStr := issuer.(string)
+		if issuerStr != t.Issuer {
+			err = multierr.Append(err, errors.New("invalid issuer: "+issuerStr+", expected: "+t.Issuer))
+		}
+	} else {
+		err = multierr.Append(err, errors.New("issuer is missing"))
+	}
+
+	if audience, ok := claims["aud"]; ok {
+		audienceStr := audience.(string)
+		if audienceStr != t.Audience {
+			err = multierr.Append(err, errors.New("invalid audience: "+audienceStr+", expected: "+t.Audience))
+		}
+	} else {
+		err = multierr.Append(err, errors.New("audience is missing"))
+	}
+
+	if policy, ok := claims["tfp"]; ok {
+		policyStr := policy.(string)
+		if policyStr != policyName {
+			err = multierr.Append(err, errors.New("invalid policy name: "+policyStr))
+		}
+	} else {
+		err = multierr.Append(err, errors.New("policy is missing"))
+	}
+
+	if exp, ok := claims["exp"]; ok {
+
+		expFloat := exp.(float64)
+
+		expiration := time.Unix(int64(expFloat), 0)
+
+		if expiration.Before(time.Now()) {
+			err = multierr.Append(err, errors.New("token expired, expiration time: "+expiration.String()))
+		}
+	} else {
+		err = multierr.Append(err, errors.New("expiration time is missing"))
+	}
+
+	return err
 }
 
 func parseToken(tokenString string) (map[string]interface{}, error) {
