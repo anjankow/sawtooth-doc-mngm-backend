@@ -54,7 +54,7 @@ func (m UserManager) InitAndReadAppKeys(ctx context.Context, appUserID string) (
 		return
 	}
 
-	return signkeys.NewUserKeys(user.PrivateKey, user.PublicKey)
+	return user.Keys, nil
 }
 
 // GetUserByID gets the user info from the AD and updates the user's keys if not assigned yet
@@ -86,8 +86,8 @@ func (m UserManager) updateUserKeys(ctx context.Context, user model.User, userKe
 	}
 
 	updatedUser := user.SetKeys(userKeys)
-	updateBody.PrivateKey = updatedUser.PrivateKey
-	updateBody.PublicKey = updatedUser.PublicKey
+	updateBody.PrivateKey = updatedUser.Keys.PrivateKey.AsHex()
+	updateBody.PublicKey = updatedUser.Keys.PrivateKey.AsHex()
 
 	marshalledReqBody, err := json.Marshal(updateBody)
 	if err != nil {
@@ -177,11 +177,14 @@ func (m UserManager) getUserByID(ctx context.Context, userID string) (model.User
 		return model.User{}, errors.New("failed to unmarshal the response: " + err.Error())
 	}
 
+	keys, err := signkeys.NewUserKeys(unmarshalled.PrivateKey, unmarshalled.PublicKey)
+	if err != nil {
+		return model.User{}, errors.New("failed to parse the keys: " + err.Error())
+	}
 	return model.User{
-		ID:         userID,
-		Name:       unmarshalled.Name,
-		PrivateKey: unmarshalled.PrivateKey,
-		PublicKey:  unmarshalled.PublicKey,
+		ID:   userID,
+		Name: unmarshalled.Name,
+		Keys: keys,
 	}, nil
 }
 

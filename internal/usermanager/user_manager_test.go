@@ -57,14 +57,14 @@ func TestUpdateUserKeys(t *testing.T) {
 	user, err = manager.updateUserKeys(context.TODO(), user, keys)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", user.Name)
-	assert.Equal(t, keys.PrivateKey.AsHex(), user.PrivateKey)
-	assert.Equal(t, keys.PublicKey.AsHex(), user.PublicKey)
+	assert.Equal(t, keys.PrivateKey.AsHex(), user.Keys.PrivateKey.AsHex())
+	assert.Equal(t, keys.PublicKey.AsHex(), user.Keys.PublicKey.AsHex())
 
 	updated, err := manager.getUserByID(context.TODO(), user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", updated.Name)
-	assert.Equal(t, keys.PrivateKey.AsHex(), user.PrivateKey)
-	assert.Equal(t, keys.PublicKey.AsHex(), user.PublicKey)
+	assert.Equal(t, keys.PrivateKey.AsHex(), user.Keys.PrivateKey.AsHex())
+	assert.Equal(t, keys.PublicKey.AsHex(), user.Keys.PublicKey.AsHex())
 
 }
 
@@ -74,8 +74,8 @@ func TestGetUserByIDWithKeys(t *testing.T) {
 	user, err := manager.getUserByID(context.TODO(), userID)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", user.Name)
-	t.Log(t, user.PrivateKey)
-	t.Log(t, user.PublicKey)
+	t.Log(t, user.Keys.PrivateKey)
+	t.Log(t, user.Keys.PublicKey)
 }
 
 func TestGetUserByIDWithoutKeys(t *testing.T) {
@@ -84,6 +84,6 @@ func TestGetUserByIDWithoutKeys(t *testing.T) {
 	user, err := manager.getUserByID(context.TODO(), userID)
 	require.NoError(t, err)
 	assert.Equal(t, "test2@csunivie3.onmicrosoft.com", user.Name)
-	t.Log(t, user.PrivateKey)
-	t.Log(t, user.PublicKey)
+	t.Log(t, user.Keys.PrivateKey)
+	t.Log(t, user.Keys.PublicKey)
 }

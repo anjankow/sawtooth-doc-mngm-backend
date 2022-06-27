@@ -17,6 +17,10 @@ type UserKeys struct {
 	PublicKey  signing.PublicKey
 }
 
+func (u UserKeys) Valid() bool {
+	return u.PrivateKey.AsHex() != "" && u.PublicKey.AsHex() != ""
+}
+
 func (u UserKeys) GetSigner() *signing.Signer {
 	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
 	return cryptoFactory.NewSigner(u.PrivateKey)
