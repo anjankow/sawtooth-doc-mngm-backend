@@ -1,6 +1,7 @@
 package usermanager
 
 import (
+	"context"
 	"doc-management/internal/config"
 	"doc-management/internal/model"
 	"doc-management/internal/signkeys"
@@ -37,13 +38,13 @@ func TestUpdateUserKeys(t *testing.T) {
 		ID:   "05c0f0f3-65dc-4a88-8b13-1aa4995ff4c3",
 		Name: "test@csunivie3.onmicrosoft.com",
 	}
-	user, err = manager.updateUserKeys(user, keys)
+	user, err = manager.updateUserKeys(context.TODO(), user, keys)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", user.Name)
 	assert.Equal(t, keys.PrivateKey.AsHex(), user.PrivateKey)
 	assert.Equal(t, keys.PublicKey.AsHex(), user.PublicKey)
 
-	updated, err := manager.getUserByID(user.ID)
+	updated, err := manager.getUserByID(context.TODO(), user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", updated.Name)
 	assert.Equal(t, keys.PrivateKey.AsHex(), user.PrivateKey)
@@ -54,7 +55,7 @@ func TestUpdateUserKeys(t *testing.T) {
 func TestGetUserByIDWithKeys(t *testing.T) {
 	manager := newTestUserManager(t)
 	userID := "05c0f0f3-65dc-4a88-8b13-1aa4995ff4c3"
-	user, err := manager.getUserByID(userID)
+	user, err := manager.getUserByID(context.TODO(), userID)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", user.Name)
 	t.Log(t, user.PrivateKey)
@@ -64,7 +65,7 @@ func TestGetUserByIDWithKeys(t *testing.T) {
 func TestGetUserByIDWithoutKeys(t *testing.T) {
 	manager := newTestUserManager(t)
 	userID := "988c6996-da05-43bb-811b-4c7d78f046fa"
-	user, err := manager.getUserByID(userID)
+	user, err := manager.getUserByID(context.TODO(), userID)
 	require.NoError(t, err)
 	assert.Equal(t, "test2@csunivie3.onmicrosoft.com", user.Name)
 	t.Log(t, user.PrivateKey)

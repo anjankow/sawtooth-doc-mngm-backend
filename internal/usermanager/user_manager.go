@@ -1,6 +1,7 @@
 package usermanager
 
 import (
+	"context"
 	"doc-management/internal/model"
 	"doc-management/internal/signkeys"
 	"encoding/json"
@@ -47,8 +48,8 @@ func NewUserManager(tenantID, clientID, extensionID, secret string) (UserManager
 }
 
 // GetUserByID get's the user info from the AD and updates the user's keys if not assigned yet
-func (m UserManager) GetUserByID(userID string) (model.User, error) {
-	user, err := m.getUserByID(userID)
+func (m UserManager) GetUserByID(ctx context.Context, userID string) (model.User, error) {
+	user, err := m.getUserByID(ctx, userID)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -63,10 +64,10 @@ func (m UserManager) GetUserByID(userID string) (model.User, error) {
 		return model.User{}, errors.New("failed to generate user's keys: " + err.Error())
 	}
 
-	return m.updateUserKeys(user, keys)
+	return m.updateUserKeys(ctx, user, keys)
 }
 
-func (m UserManager) updateUserKeys(user model.User, userKeys signkeys.UserKeys) (model.User, error) {
+func (m UserManager) updateUserKeys(ctx context.Context, user model.User, userKeys signkeys.UserKeys) (model.User, error) {
 	path := graphURL + m.tenantID + "/users/" + user.ID
 
 	var updateBody struct {
@@ -84,7 +85,7 @@ func (m UserManager) updateUserKeys(user model.User, userKeys signkeys.UserKeys)
 	}
 
 	modifiedBody := strings.ReplaceAll(string(marshalledReqBody), "EXTENSION_ID", m.extensionID)
-	r, err := http.NewRequest(http.MethodPatch, path, strings.NewReader(modifiedBody))
+	r, err := http.NewRequestWithContext(ctx, http.MethodPatch, path, strings.NewReader(modifiedBody))
 	if err != nil {
 		return user, err
 	}
@@ -106,7 +107,7 @@ func (m UserManager) updateUserKeys(user model.User, userKeys signkeys.UserKeys)
 		if err := m.setNewAppToken(); err != nil {
 			return user, errors.New("token not valid, failed to set a new one: " + err.Error())
 		}
-		return m.updateUserKeys(user, userKeys)
+		return m.updateUserKeys(ctx, user, userKeys)
 	}
 
 	// on any other not successfull status code read the response body to get the error
@@ -120,13 +121,13 @@ func (m UserManager) updateUserKeys(user model.User, userKeys signkeys.UserKeys)
 
 }
 
-func (m UserManager) getUserByID(userID string) (model.User, error) {
+func (m UserManager) getUserByID(ctx context.Context, userID string) (model.User, error) {
 	path := graphURL + m.tenantID + "/users/" + userID +
 		"?$select=userPrincipalName," +
 		"extension_" + m.extensionID + "_PrivateKey," +
 		"extension_" + m.extensionID + "_PublicKey"
 
-	r, err := http.NewRequest(http.MethodGet, path, nil)
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -149,7 +150,7 @@ func (m UserManager) getUserByID(userID string) (model.User, error) {
 			if err := m.setNewAppToken(); err != nil {
 				return model.User{}, errors.New("token not valid, failed to set a new one: " + err.Error())
 			}
-			return m.GetUserByID(userID)
+			return m.GetUserByID(ctx, userID)
 		}
 
 		return model.User{}, errors.New("status code: " + resp.Status + "; body: " + string(reponseBody))
