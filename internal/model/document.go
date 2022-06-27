@@ -50,7 +50,7 @@ func NewDocumentFromProposal(proposal Proposal, version int) Document {
 }
 
 func GetNextDocVersion(docs []Document) int {
-	latestVersion := 1
+	latestVersion := 0
 
 	for _, doc := range docs {
 		if doc.Version > latestVersion {
