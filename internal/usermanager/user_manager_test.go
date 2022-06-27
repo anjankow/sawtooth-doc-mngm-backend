@@ -29,6 +29,22 @@ func newTestUserManager(t *testing.T) UserManager {
 
 }
 
+func TestReadAppKeys(t *testing.T) {
+
+	manager := newTestUserManager(t)
+	appUserID := "1ce7cffe-bf4a-4a14-8535-413013cae16f"
+	keys, err := manager.InitAndReadAppKeys(context.TODO(), appUserID)
+	require.NoError(t, err)
+	assert.NotEmpty(t, keys.PrivateKey.AsHex())
+	assert.NotEmpty(t, keys.PublicKey.AsHex())
+	t.Log(t, keys.PublicKey.AsHex())
+
+	pub1 := keys.PublicKey.AsHex()
+	keys2, err := manager.InitAndReadAppKeys(context.TODO(), appUserID)
+	pub2 := keys2.PublicKey.AsHex()
+	assert.Equal(t, pub1, pub2)
+}
+
 func TestUpdateUserKeys(t *testing.T) {
 	keys, err := signkeys.GenerateKeys()
 	require.NoError(t, err)

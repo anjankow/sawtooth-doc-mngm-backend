@@ -47,7 +47,17 @@ func NewUserManager(tenantID, clientID, extensionID, secret string) (UserManager
 	return manager, nil
 }
 
-// GetUserByID get's the user info from the AD and updates the user's keys if not assigned yet
+// InitAndReadAppKeys reads the app keys from the AD, sets them if they don't exist yet
+func (m UserManager) InitAndReadAppKeys(ctx context.Context, appUserID string) (keys signkeys.UserKeys, err error) {
+	user, err := m.GetUserByID(ctx, appUserID)
+	if err != nil {
+		return
+	}
+
+	return signkeys.NewUserKeys(user.PrivateKey, user.PublicKey)
+}
+
+// GetUserByID gets the user info from the AD and updates the user's keys if not assigned yet
 func (m UserManager) GetUserByID(ctx context.Context, userID string) (model.User, error) {
 	user, err := m.getUserByID(ctx, userID)
 	if err != nil {
