@@ -28,6 +28,11 @@ func (ser server) badRequest(w http.ResponseWriter, message string) {
 	ser.logger.Warn(message)
 }
 
+func (ser server) unauthorizedRequest(w http.ResponseWriter, message string) {
+	http.Error(w, message, http.StatusUnauthorized)
+	ser.logger.Warn(message)
+}
+
 func (ser server) serverError(w http.ResponseWriter, message string) {
 	http.Error(w, message, http.StatusInternalServerError)
 	ser.logger.Error(message)

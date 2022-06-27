@@ -2,6 +2,7 @@ package http
 
 import (
 	"doc-management/internal/model"
+	"doc-management/internal/ports/http/middleware/auth"
 	"encoding/json"
 	"net/http"
 
@@ -35,6 +36,11 @@ func (r *retrivedDocVersion) assign(doc model.Document) {
 }
 
 func (ser server) getDocVersions(w http.ResponseWriter, r *http.Request) {
+	if err := auth.ValidateScope(r, "docs.read"); err != nil {
+		ser.unauthorizedRequest(w, err.Error())
+		return
+	}
+
 	docName, category := ser.readGetDocVersionParams(r)
 	ser.logger.Debug("getting doc " + docName + ", category " + category)
 
@@ -53,6 +59,10 @@ func (ser server) getDocVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ser server) getDocuments(w http.ResponseWriter, r *http.Request) {
+	if err := auth.ValidateScope(r, "docs.read"); err != nil {
+		ser.unauthorizedRequest(w, err.Error())
+		return
+	}
 
 	author, signer := ser.readGetDocsParams(r)
 	ser.logger.Debug("getting docs, author {" + author + "}, signer {" + signer + "}")

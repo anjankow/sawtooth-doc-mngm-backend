@@ -4,6 +4,7 @@ import (
 	"context"
 	"doc-management/internal/config"
 	"doc-management/internal/model"
+	"doc-management/internal/ports/http/middleware/auth"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,10 @@ type retrivedProposal struct {
 }
 
 func (ser server) signProposal(w http.ResponseWriter, r *http.Request) {
+	if err := auth.ValidateScope(r, "docs.sign"); err != nil {
+		ser.unauthorizedRequest(w, err.Error())
+		return
+	}
 
 	proposalID, signer, err := ser.readSignProposalParams(r)
 	if err != nil {
@@ -48,6 +53,11 @@ func (ser server) signProposal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
+	if err := auth.ValidateScope(r, "docs.read"); err != nil {
+		ser.unauthorizedRequest(w, err.Error())
+		return
+	}
+
 	userID := normalize(r.URL.Query().Get("userID"))
 	category := normalize(r.URL.Query().Get("category"))
 
@@ -105,6 +115,11 @@ func (ser server) getAllProposals(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ser server) putProposal(w http.ResponseWriter, r *http.Request) {
+
+	if err := auth.ValidateScope(r, "docs.write"); err != nil {
+		ser.unauthorizedRequest(w, err.Error())
+		return
+	}
 
 	proposal, err := ser.readAddProposalParams(r)
 	if err != nil {

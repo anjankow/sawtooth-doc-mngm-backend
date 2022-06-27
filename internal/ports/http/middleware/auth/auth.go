@@ -123,3 +123,16 @@ func parseToken(tokenString string) (map[string]interface{}, error) {
 
 	return claims, nil
 }
+
+func ValidateScope(r *http.Request, expectedScope string) error {
+	value := r.Context().Value("scopes")
+	if value == nil {
+		return errors.New("token scope is missing in the request context")
+	}
+	scopes := value.(string)
+	if !strings.Contains(scopes, expectedScope) {
+		return errors.New("expected scope " + expectedScope + " is missing: " + scopes)
+	}
+
+	return nil
+}
