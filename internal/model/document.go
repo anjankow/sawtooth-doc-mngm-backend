@@ -48,3 +48,15 @@ func NewDocumentFromProposal(proposal Proposal, version int) Document {
 		Signers:      proposal.Signers,
 	}
 }
+
+func GetNextDocVersion(docs []Document) int {
+	latestVersion := 1
+
+	for _, doc := range docs {
+		if doc.Version > latestVersion {
+			latestVersion = doc.Version
+		}
+	}
+
+	return latestVersion + 1
+}

@@ -93,9 +93,9 @@ func (a App) handleProposalAccepted(data []byte) error {
 		return errors.New("failed to get the doc versions: " + err.Error())
 	}
 
-	latestVersion := getLatestDocVersion(docs)
+	newVersion := model.GetNextDocVersion(docs)
 
-	newDoc := model.NewDocumentFromProposal(proposal, latestVersion+1)
+	newDoc := model.NewDocumentFromProposal(proposal, newVersion)
 
 	if err := a.db.InsertDocumentVersion(ctx, newDoc); err != nil {
 		return errors.New("failed to insert the accepted doc into db: " + err.Error())
@@ -113,16 +113,4 @@ func (a App) handleProposalAccepted(data []byte) error {
 	a.logger.Info("new doc version saved, transaction ID: "+transactionID, zap.String("docName", newDoc.DocumentName), zap.String("author", newDoc.Author))
 
 	return nil
-}
-
-func getLatestDocVersion(docs []model.Document) int {
-	latestVersion := 1
-
-	for _, doc := range docs {
-		if doc.Version > latestVersion {
-			latestVersion = doc.Version
-		}
-	}
-
-	return latestVersion
 }
