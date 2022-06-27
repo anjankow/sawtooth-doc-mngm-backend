@@ -34,13 +34,13 @@ func (a App) getProposalData(ctx context.Context, proposalID string) (model.Prop
 
 // SignProposal user ID refers to a user who signs the proposal
 func (a App) SignProposal(ctx context.Context, proposalID string, userID string) error {
-	// TODO: use the user's keys obtained from the key manager
-	keys, err := a.keyManager.GenerateKeys()
+
+	user, err := a.userManager.GetUserByID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	transactionID, err := a.blkchnClient.SignProposal(ctx, proposalID, userID, keys.GetSigner())
+	transactionID, err := a.blkchnClient.SignProposal(ctx, proposalID, userID, user.Keys.GetSigner())
 	if err != nil {
 		return err
 	}
@@ -84,12 +84,7 @@ func (a App) fillAndVerifyProposalContent(ctx context.Context, propos []model.Pr
 				a.logger.Error("failed to remove the proposal from db: " + err.Error())
 			}
 
-			key, err := a.keyManager.GetAppKey()
-			if err != nil {
-				a.logger.Error("can't remove from blockchain, getting app key failed: " + err.Error())
-				continue
-			}
-			if _, err := a.blkchnClient.RemoveProposal(context.Background(), p.ProposalID, key.GetSigner()); err != nil {
+			if _, err := a.blkchnClient.RemoveProposal(context.Background(), p.ProposalID, a.appKeys.GetSigner()); err != nil {
 				a.logger.Error("can't remove the proposal from blockchain: " + err.Error())
 			}
 
@@ -141,8 +136,7 @@ func (a App) AddProposal(ctx context.Context, proposal model.Proposal) error {
 		}
 	}
 
-	// TODO: use the user's keys obtained from the key manager
-	keys, err := a.keyManager.GenerateKeys()
+	user, err := a.userManager.GetUserByID(ctx, proposal.ModificationAuthor)
 	if err != nil {
 		return err
 	}
@@ -155,7 +149,7 @@ func (a App) AddProposal(ctx context.Context, proposal model.Proposal) error {
 	}
 
 	// submit to blockchain only if all the previous operations succeeded, as this action is irreversible
-	transactionID, err := a.blkchnClient.SubmitProposal(ctx, proposal, keys.GetSigner())
+	transactionID, err := a.blkchnClient.SubmitProposal(ctx, proposal, user.Keys.GetSigner())
 	if err != nil {
 		// remove the doc from the database
 		a.logger.Debug("removing the proposal content from the database on error", zap.String("proposalID", proposal.ProposalID))

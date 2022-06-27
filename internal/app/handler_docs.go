@@ -77,12 +77,7 @@ func (a App) fillAndVerifyDocContent(ctx context.Context, docs []model.Document)
 
 func (a App) invalidateDoc(doc model.Document) {
 	// keep the invalid content in the db
-	key, err := a.keyManager.GetAppKey()
-	if err != nil {
-		a.logger.Error("can't remove from blockchain, getting app key failed: " + err.Error())
-		return
-	}
-	if _, err := a.blkchnClient.InvalidateDocumentVersion(context.Background(), doc, key.GetSigner()); err != nil {
+	if _, err := a.blkchnClient.InvalidateDocumentVersion(context.Background(), doc, a.appKeys.GetSigner()); err != nil {
 		a.logger.Error("can't invalidate the doc: " + err.Error())
 	}
 }
