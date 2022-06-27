@@ -1,4 +1,4 @@
-package user
+package usermanager
 
 import (
 	"doc-management/internal/config"

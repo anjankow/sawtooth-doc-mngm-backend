@@ -1,7 +1,9 @@
-package user
+package usermanager
 
 import (
 	"doc-management/internal/config"
+	"doc-management/internal/model"
+	"doc-management/internal/signkeys"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -27,24 +29,25 @@ func newTestUserManager(t *testing.T) UserManager {
 }
 
 func TestUpdateUserKeys(t *testing.T) {
-	publicKey := "sfds"
-	privateKey := "sfds22"
+	keys, err := signkeys.GenerateKeys()
+	require.NoError(t, err)
+
 	manager := newTestUserManager(t)
-	user := User{
+	user := model.User{
 		ID:   "05c0f0f3-65dc-4a88-8b13-1aa4995ff4c3",
 		Name: "test@csunivie3.onmicrosoft.com",
 	}
-	user, err := manager.updateUserKeys(user, privateKey, publicKey)
+	user, err = manager.updateUserKeys(user, keys)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", user.Name)
-	assert.Equal(t, privateKey, user.PrivateKey)
-	assert.Equal(t, publicKey, user.PublicKey)
+	assert.Equal(t, keys.PrivateKey.AsHex(), user.PrivateKey)
+	assert.Equal(t, keys.PublicKey.AsHex(), user.PublicKey)
 
 	updated, err := manager.getUserByID(user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "test@csunivie3.onmicrosoft.com", updated.Name)
-	assert.Equal(t, privateKey, updated.PrivateKey)
-	assert.Equal(t, publicKey, updated.PublicKey)
+	assert.Equal(t, keys.PrivateKey.AsHex(), user.PrivateKey)
+	assert.Equal(t, keys.PublicKey.AsHex(), user.PublicKey)
 
 }
 
