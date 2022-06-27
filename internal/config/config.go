@@ -95,3 +95,7 @@ func GetMsExtensionID() string {
 func GetAppUserID() string {
 	return viper.GetString("APP_USER_ID")
 }
+
+func GetTokenIssuer() string {
+	return viper.GetString("MS_TOKEN_ISSUER")
+}

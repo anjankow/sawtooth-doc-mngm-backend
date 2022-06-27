@@ -2,50 +2,79 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 
-	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
-	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"go.uber.org/zap"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-const issuerURL = "https://csunivie3.b2clogin.com/20127c08-9cf9-41d0-a3ee-1fd0c4e787b8/v2.0/"
+const policyName = "B2C_1_singin"
 
-var audience = []string{"bec9d628-b94f-474f-a681-0abf30268fde"}
+type JwtTokenParams struct {
+	Issuer   string
+	Audience string
+}
 
-// source: https://pkg.go.dev/github.com/auth0/go-jwt-middleware/v2#section-readme
-func NewJwtMiddleware(secret string, logger *zap.Logger) (*jwtmiddleware.JWTMiddleware, error) {
-	keyFunc := func(ctx context.Context) (interface{}, error) {
-		// Our token must be signed using this data.
-		return []byte(secret), nil
-	}
+type TokenValidator struct {
+	JwtTokenParams
+	logger *zap.Logger
+}
 
-	// Set up the validator.
-	jwtValidator, err := validator.New(
-		keyFunc,
-		validator.RS256,
-		issuerURL,
-		audience,
-	)
+func NewTokenValidator(logger *zap.Logger, params JwtTokenParams) TokenValidator {
+	return TokenValidator{logger: logger, JwtTokenParams: params}
+}
+
+func (t TokenValidator) ValidateGetScopes(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("Authorization")
+		claims, err := parseToken(strings.TrimPrefix(token, "Bearer "))
+		if err != nil {
+			t.authError(w, errors.New("failed to parse the auth token: "+err.Error()))
+			return
+		}
+
+		if err := t.validateClaims(claims); err != nil {
+			t.authError(w, errors.New("auth token validation: "+err.Error()))
+			return
+		}
+
+		// add user id and scopes to the request context
+		newCtx := r.Context()
+		if user, ok := claims["oid"]; ok {
+			newCtx = context.WithValue(newCtx, "userID", user)
+		}
+		if scopes, ok := claims["scp"]; ok {
+			newCtx = context.WithValue(newCtx, "scopes", scopes)
+		}
+
+		next.ServeHTTP(w, r.WithContext(newCtx))
+	})
+}
+
+func (t TokenValidator) authError(w http.ResponseWriter, err error) {
+	t.logger.Warn(err.Error())
+	w.WriteHeader(http.StatusUnauthorized)
+	w.Write([]byte(err.Error()))
+}
+
+func (t TokenValidator) validateClaims(claims map[string]interface{}) error {
+	return nil
+}
+
+func parseToken(tokenString string) (map[string]interface{}, error) {
+
+	var claims map[string]interface{}
+
+	token, err := jwt.ParseSigned(tokenString)
 	if err != nil {
 		return nil, err
 	}
 
-	errorHndl := func(w http.ResponseWriter, r *http.Request, err error) {
-		logger.Warn("failed to auth the request: " + err.Error())
-		w.WriteHeader(http.StatusBadRequest)
+	if err := token.UnsafeClaimsWithoutVerification(&claims); err != nil {
+		return nil, err
 	}
-	// Set up the middleware.
-	middleware := jwtmiddleware.New(jwtValidator.ValidateToken, jwtmiddleware.WithErrorHandler(errorHndl), jwtmiddleware.WithTokenExtractor(jwtmiddleware.AuthHeaderTokenExtractor))
 
-	return middleware, nil
-}
-
-func getTokenInfo(r *http.Request) validator.RegisteredClaims {
-	claims := r.Context().Value(jwtmiddleware.ContextKey{}).(*validator.ValidatedClaims)
-	return claims.RegisteredClaims
-}
-
-func AddTokenValidation(middleware *jwtmiddleware.JWTMiddleware, handler http.Handler) http.Handler {
-	return middleware.CheckJWT(handler)
+	return claims, nil
 }

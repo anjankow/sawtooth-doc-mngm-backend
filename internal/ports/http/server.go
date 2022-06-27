@@ -68,13 +68,12 @@ func (ser server) Run() error {
 	router := mux.NewRouter()
 	ser.registerHandlers(router)
 
-	jwt, err := auth.NewJwtMiddleware(config.GetAppSecret(), ser.logger)
-	if err != nil {
-		return err
-	}
+	tokenValidator := auth.NewTokenValidator(ser.logger, auth.JwtTokenParams{
+		Issuer:   config.GetTokenIssuer(),
+		Audience: config.GetClientID(),
+	})
 
-	handler := cors.AddCorsPolicy(
-		auth.AddTokenValidation(jwt, router))
+	handler := cors.AddCorsPolicy(tokenValidator.ValidateGetScopes(router))
 
 	ser.httpServer = &http.Server{
 		Handler: handler,
