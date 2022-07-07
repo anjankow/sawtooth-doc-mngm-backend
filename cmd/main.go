@@ -26,8 +26,9 @@ func main() {
 
 	viper.SetConfigFile(".env")
 	if err := viper.ReadInConfig(); err != nil {
-		logger.Warn("failed to read the config file: " + err.Error())
+		logger.Warn(".env config file not found, using the system env variables")
 	}
+	viper.AutomaticEnv()
 
 	hashing.Initialize(logger)
 	db, err := mongodb.NewConnection(logger, config.GetDbConnectionURI())
