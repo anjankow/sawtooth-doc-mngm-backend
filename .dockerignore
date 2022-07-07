@@ -1,1 +1,4 @@
 vendor/
+README.md
+.gitignore
+.env
