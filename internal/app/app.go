@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	submitTimeout           = 10 * time.Second
-	acceptingProcessTimeout = 10 * time.Second
+	acceptingProcessTimeout = 20 * time.Second
 )
 
 type App struct {
@@ -49,7 +48,7 @@ func (a *App) Start() error {
 		return errors.New("failed to initialize user manager: " + err.Error())
 	}
 	a.userManager = userManag
-	ctx, cancel := context.WithTimeout(context.Background(), submitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), config.GetRequestTimeout())
 	defer cancel()
 	appKeys, err := userManag.InitAndReadAppKeys(ctx, config.GetAppUserID())
 	a.appKeys = appKeys

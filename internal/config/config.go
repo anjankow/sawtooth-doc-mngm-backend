@@ -73,7 +73,12 @@ func GetDatabaseName() string {
 }
 
 func GetRequestTimeout() time.Duration {
-	return defaultRequestTimeout
+	timeout := viper.GetDuration("REQ_TIMEOUT")
+	if timeout.Seconds() < 1 {
+		return defaultRequestTimeout
+	}
+
+	return timeout
 }
 
 func GetAppSecret() string {
